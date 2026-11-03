@@ -3,6 +3,10 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Extensión de VS Code: los paquetes se generan con `npm run package`
+*.vsix
+node_modules/
+
 # C extensions
 *.so
 

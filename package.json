@@ -1,0 +1,64 @@
+{
+  "name": "trucovale4",
+  "displayName": "Truco Vale 4",
+  "description": "Jugá al truco argentino desde la barra lateral de VS Code, contra la CPU u online contra un amigo.",
+  "version": "0.3.3",
+  "icon": "images/icon.png",
+  "publisher": "TrucoVale4",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MateoDeMartino/Truco-Vale-4.git"
+  },
+  "homepage": "https://github.com/MateoDeMartino/Truco-Vale-4#readme",
+  "bugs": {
+    "url": "https://github.com/MateoDeMartino/Truco-Vale-4/issues"
+  },
+  "keywords": [
+    "truco",
+    "cartas",
+    "juego",
+    "argentina",
+    "game"
+  ],
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./extension.js",
+  "scripts": {
+    "package": "npx -y @vscode/vsce@3 package -o trucovale4-$npm_package_version.vsix",
+    "test": "node test/engine.test.js"
+  },
+  "activationEvents": [],
+  "contributes": {
+    "views": {
+      "explorer": [
+        {
+          "type": "webview",
+          "id": "trucovale4.view",
+          "name": "Truco"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "trucovale4.newGame",
+        "title": "Nuevo partido",
+        "category": "Truco",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "trucovale4.newGame",
+          "when": "view == trucovale4.view",
+          "group": "navigation"
+        }
+      ]
+    }
+  }
+}
