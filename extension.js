@@ -41,6 +41,8 @@ class TrucoViewProvider {
   <div id="app"></div>
   <script nonce="${nonce}" src="${uri('peerjs.min.js')}"></script>
   <script nonce="${nonce}" src="${uri('engine.js')}"></script>
+  <script nonce="${nonce}" src="${uri('engine-team.js')}"></script>
+  <script nonce="${nonce}" src="${uri('team.js')}"></script>
   <script nonce="${nonce}" src="${uri('ui.js')}"></script>
 </body>
 </html>`;

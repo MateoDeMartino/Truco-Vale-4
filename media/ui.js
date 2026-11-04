@@ -23,13 +23,31 @@
   let localGame = null; // partida contra la CPU guardada mientras se juega online
   const net = { phase: 'menu', code: '', joinInput: '', error: '', peer: null, conn: null, gotState: false, joinTimer: null };
 
+  // Partidas en equipo (4 o 6): las maneja team.js; acá solo se le pasa lo que necesita.
+  const Team = window.TrucoTeamUI;
+  let playerName = (saved && saved.name) || '';
+  Team.init({
+    name: playerName,
+    btn,
+    cardHtml,
+    render,
+    copy: (text) => vscode.postMessage({ type: 'copy', text }),
+    saveName: (n) => { playerName = n; save(); },
+    onExit: (msg) => {
+      net.phase = 'menu';
+      net.error = msg;
+      screen = 'online';
+      update();
+    },
+  });
+
   const name = (w) => (w === 'p' ? 'Vos' : mode === 'local' ? 'CPU' : 'Rival');
   const oppLabel = () => (mode === 'local' ? 'la CPU' : 'tu rival');
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
   const names = (s) => s.replace(/\{(p|c)\}/g, (_, x) => name(x));
 
   function save() {
-    vscode.setState({ v: 1, S: mode === 'local' ? E.state() : localGame });
+    vscode.setState({ v: 1, S: mode === 'local' ? E.state() : localGame, name: playerName });
   }
 
   function update() {
@@ -37,7 +55,7 @@
     if (mode === 'host') sendState();
     render();
     clearTimeout(timer);
-    if (mode === 'local' && E.actor() === 'c') {
+    if (mode === 'local' && !Team.active() && E.actor() === 'c') {
       timer = setTimeout(() => {
         E.aiAct('c');
         update();
@@ -198,6 +216,19 @@
   }
 
   function onGuestData(msg) {
+    // Del otro lado hay una partida en equipo: la conexión pasa a team.js.
+    if (msg.type === 'lobby' || msg.type === 'full') {
+      const { peer, conn, code } = net;
+      clearTimeout(net.joinTimer);
+      net.peer = null;
+      net.conn = null;
+      net.phase = 'menu';
+      net.gotState = false;
+      mode = 'local';
+      localGame = null;
+      Team.adoptGuest(peer, conn, code, msg);
+      return;
+    }
     if (msg.type === 'state' && msg.S) {
       E.load(msg.S);
       net.gotState = true;
@@ -242,10 +273,11 @@
   }
 
   function tabsHtml() {
-    const online = screen === 'online' || mode !== 'local';
+    const playing = mode !== 'local' || Team.active();
+    const online = screen === 'online' || playing;
     return `<div class="tabs">
       <button class="tab ${online ? '' : 'active'}" data-a="tab-local">Contra la CPU</button>
-      <button class="tab ${online ? 'active' : ''}" data-a="tab-online">Online${mode !== 'local' ? ' ●' : ''}</button>
+      <button class="tab ${online ? 'active' : ''}" data-a="tab-online">Online${playing ? ' ●' : ''}</button>
     </div>`;
   }
 
@@ -261,7 +293,7 @@
         <div class="actions">${btn('Cancelar', 'cancel', '', 'secondary')}</div>`;
     } else {
       h += `<div class="lbl">Jugá contra alguien en otra PC</div>
-        <div class="actions">${btn('Crear partida', 'host', '', 'call')}</div>
+        <div class="actions">${btn('1 vs 1', 'host', '', 'call')}${btn('En equipo (4 o 6)', 't-host', '', 'call')}</div>
         <div class="or">o unite con un código</div>
         <div class="join">
           <input id="code" type="text" maxlength="8" placeholder="CÓDIGO" value="${net.joinInput}" autocomplete="off" spellcheck="false">
@@ -369,10 +401,23 @@
 
   function render() {
     let h = tabsHtml();
-    if (screen === 'online' && mode === 'local') h += onlineMenuHtml();
+    if (Team.active()) h += Team.html();
+    else if (screen === 'online' && mode === 'local') h += onlineMenuHtml();
     else if (mode === 'guest' && !net.gotState) h += '<div class="online"><div class="hint">Conectado. Esperando que arranque la partida…</div></div>';
     else h += gameHtml();
+
+    // Si estabas escribiendo (por ejemplo tu nombre) y llega una actualización, no perdés el foco.
+    const focused = document.activeElement;
+    const focusId = focused && focused.id;
+    const caret = focusId && focused.selectionStart;
     document.getElementById('app').innerHTML = h;
+    if (focusId) {
+      const el = document.getElementById(focusId);
+      if (el) {
+        el.focus();
+        try { el.setSelectionRange(caret, caret); } catch (e) { /* no es un campo de texto */ }
+      }
+    }
   }
 
   // ---------- Eventos ----------
@@ -408,8 +453,13 @@
     const el = e.target.closest('[data-a]');
     if (!el) return;
     const a = el.dataset.a;
+    if (a.startsWith('t-')) {
+      Team.click(a, el);
+      return;
+    }
     switch (a) {
       case 'tab-local':
+        Team.leave();
         leaveOnline();
         screen = 'game';
         update();
@@ -447,14 +497,16 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.target.id === 'code' && e.key === 'Enter') startJoin();
+    if (e.target.id === 't-name' && e.key === 'Enter') Team.commitName(e.target.value);
   });
 
   document.addEventListener('change', (e) => {
     if (e.target.id === 'target') chosenTarget = Number(e.target.value);
+    if (e.target.id === 't-name') Team.commitName(e.target.value);
   });
 
   window.addEventListener('message', (e) => {
-    if (e.data && e.data.type === 'newGame' && mode === 'local') {
+    if (e.data && e.data.type === 'newGame' && mode === 'local' && !Team.active()) {
       newGame();
       screen = 'game';
       update();

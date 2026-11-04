@@ -1,8 +1,8 @@
 {
   "name": "trucovale4",
   "displayName": "Truco Vale 4",
-  "description": "Jugá al truco argentino desde la barra lateral de VS Code, contra la CPU u online contra un amigo.",
-  "version": "0.3.3",
+  "description": "Jugá al truco argentino desde la barra lateral de VS Code, contra la CPU u online: 1 vs 1 o en equipos de 4 y 6.",
+  "version": "0.4.0",
   "icon": "images/icon.png",
   "publisher": "TrucoVale4",
   "license": "MIT",
@@ -30,7 +30,7 @@
   "main": "./extension.js",
   "scripts": {
     "package": "npx -y @vscode/vsce@3 package -o trucovale4-$npm_package_version.vsix",
-    "test": "node test/engine.test.js"
+    "test": "node test/engine.test.js && node test/team.test.js"
   },
   "activationEvents": [],
   "contributes": {
