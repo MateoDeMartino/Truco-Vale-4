@@ -16,7 +16,15 @@ Aparece como la sección **Truco** en el Explorador.
 1. En la pestaña **Online**, tocá **Crear partida** y pasale el código a tu rival.
 2. Tu rival, desde su VS Code (con la misma versión de la extensión), escribe el código y toca **Unirse**.
 
-La conexión es directa entre las dos PCs (WebRTC con [PeerJS](https://peerjs.com), licencia MIT). El servidor público de PeerJS solo se usa para que se encuentren.
+### En equipo (4 o 6 jugadores)
+
+1. En **Online**, tocá **En equipo (4 o 6)**. Elegí cuántos jugadores y a cuántos puntos.
+2. Pasá el código: tus amigos lo ponen en **Unirse**, escriben su nombre y eligen equipo.
+3. Cuando los dos equipos están completos, el que creó la partida toca **Empezar partida**.
+
+Los equipos se sientan intercalados en la mesa y cada uno ve el suyo como **Nosotros** y al otro como **Ellos**. El envido cuenta el mejor de cada equipo, y a un canto puede responder cualquiera del equipo rival.
+
+La conexión es directa entre las PCs (WebRTC con [PeerJS](https://peerjs.com), licencia MIT). El servidor público de PeerJS solo se usa para que se encuentren.
 
 ## Desarrollo
 
