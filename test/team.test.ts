@@ -1,13 +1,14 @@
-// Partidos en equipo (4 y 6 jugadores) con jugadas al azar: node test/team.test.js
-const assert = require('assert');
-const T = require('../media/engine-team.js');
+// Partidos en equipo (4 y 6 jugadores) con jugadas al azar: node dist/test/team.test.js
+import assert from 'assert';
+import { TrucoTeam as T } from '../src/engine/engine-team';
+import { TeamAction } from '../src/types/team';
 
 assert.strictEqual(T.handWinner([0, 'tie'], 1), 0);
 assert.strictEqual(T.handWinner(['tie', 'tie', 'tie'], 1), 1);
 assert.strictEqual(T.handWinner([0, 1], 0), null);
 
 // Elige una jugada legal al azar, casi siempre tirar una carta para que el partido avance.
-function randomMove(seat) {
+function randomMove(seat: number): TeamAction {
   const opts = T.options(seat);
   const plays = opts.filter((o) => o.t === 'play');
   if (plays.length && Math.random() < 0.8) return plays[Math.floor(Math.random() * plays.length)];
@@ -40,12 +41,12 @@ for (const n of [4, 6]) {
       if (!S.handOver && steps % 7 === 0) {
         const v = T.viewFor(1);
         assert.deepStrictEqual(v.hands[1], S.hands[1]);
-        assert(v.hands[0].every((c) => c === null) && v.orig[0] === null);
+        assert(v.hands[0].every((c) => c === null) && v.orig[0].length === 0);
       }
     }
     const S = T.state();
-    assert.strictEqual(S.score[S.over], S.target);
-    wins[S.over]++;
+    assert.strictEqual(S.score[S.over!], S.target);
+    wins[S.over!]++;
   }
   console.log(`OK ${n} jugadores`, { wins, hands });
 }

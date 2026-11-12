@@ -30,12 +30,15 @@ La conexión es directa entre las PCs (WebRTC con [PeerJS](https://peerjs.com), 
 
 ```bash
 pnpm install
-pnpm test          # partidos simulados CPU vs CPU para chequear las reglas
-pnpm run package   # genera trucovale4-<versión>.vsix
+pnpm run build        # compila el código TypeScript con esbuild hacia dist/
+pnpm run check-types  # valida tipos con tsc
+pnpm test             # partidos simulados CPU vs CPU y en equipos para chequear las reglas
+pnpm run package      # genera trucovale4-<versión>.vsix
 ```
 
 Para instalar el paquete local: `code --install-extension trucovale4-<versión>.vsix`.
 
-- `media/engine.js`: reglas del juego y la CPU
-- `media/ui.js`, `media/truco.css`: interfaz y modo online
-- `extension.js`: registra la vista en VS Code
+- `src/engine/engine.ts`: reglas del juego 1v1 y CPU (Monte Carlo)
+- `src/engine/engine-team.ts`: reglas para partidas en equipo (4 y 6 jugadores)
+- `src/webview/ui.ts`, `src/webview/team.ts`, `media/truco.css`: interfaz y modo online
+- `src/extension.ts`: registra la vista en VS Code

@@ -1,9 +1,18 @@
-(function () {
-  'use strict';
+import { TrucoEngine as E } from '../engine/engine';
+import { TrucoTeamUI as Team } from './team';
+import { Action, Card, EnvidoValue, GameState } from '../types/truco';
+
+declare function acquireVsCodeApi(): {
+  getState(): any;
+  setState(state: any): void;
+  postMessage(message: any): void;
+};
+
+declare const Peer: any;
+
+export function startUI() {
   const vscode = acquireVsCodeApi();
-  const E = window.TrucoEngine;
-  const Peer = window.Peer;
-  const ICON = { espada: '🗡️', basto: '🪵', oro: '🪙', copa: '🍷' };
+  const ICON: Record<string, string> = { espada: '🗡️', basto: '🪵', oro: '🪙', copa: '🍷' };
   const CPU_DELAY = 900;
   const PEER_PREFIX = 'quiero-re-truco-';
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -13,27 +22,37 @@
   if (saved && saved.v === 1 && saved.S) E.load(saved.S);
   else E.newGame(15);
 
-  let timer = null;
-  let chosenTarget = null;
+  let timer: any = null;
+  let chosenTarget: number | null = null;
 
   // mode: quién maneja el estado del motor. 'local' = contra la CPU,
   // 'host' = partida online creada acá, 'guest' = unido a la partida de otro.
-  let mode = 'local';
-  let screen = 'game'; // 'game' | 'online'
-  let localGame = null; // partida contra la CPU guardada mientras se juega online
-  const net = { phase: 'menu', code: '', joinInput: '', error: '', peer: null, conn: null, gotState: false, joinTimer: null };
+  let mode: 'local' | 'host' | 'guest' = 'local';
+  let screen: 'game' | 'online' = 'game';
+  let localGame: GameState | null = null;
+  const net = {
+    phase: 'menu',
+    code: '',
+    joinInput: '',
+    error: '',
+    peer: null as any,
+    conn: null as any,
+    gotState: false,
+    joinTimer: null as any,
+  };
 
-  // Partidas en equipo (4 o 6): las maneja team.js; acá solo se le pasa lo que necesita.
-  const Team = window.TrucoTeamUI;
   let playerName = (saved && saved.name) || '';
   Team.init({
     name: playerName,
     btn,
     cardHtml,
     render,
-    copy: (text) => vscode.postMessage({ type: 'copy', text }),
-    saveName: (n) => { playerName = n; save(); },
-    onExit: (msg) => {
+    copy: (text: string) => vscode.postMessage({ type: 'copy', text }),
+    saveName: (n: string) => {
+      playerName = n;
+      save();
+    },
+    onExit: (msg: string) => {
       net.phase = 'menu';
       net.error = msg;
       screen = 'online';
@@ -41,10 +60,10 @@
     },
   });
 
-  const name = (w) => (w === 'p' ? 'Vos' : mode === 'local' ? 'CPU' : 'Rival');
+  const name = (w: string) => (w === 'p' ? 'Vos' : mode === 'local' ? 'CPU' : 'Rival');
   const oppLabel = () => (mode === 'local' ? 'la CPU' : 'tu rival');
-  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-  const names = (s) => s.replace(/\{(p|c)\}/g, (_, x) => name(x));
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const names = (s: string) => s.replace(/\{(p|c)\}/g, (_, x) => name(x));
 
   function save() {
     vscode.setState({ v: 1, S: mode === 'local' ? E.state() : localGame, name: playerName });
@@ -65,13 +84,13 @@
 
   // ---------- Red ----------
 
-  function genCode() {
+  function genCode(): string {
     let c = '';
     for (let i = 0; i < 5; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
     return c;
   }
 
-  function send(msg) {
+  function send(msg: any) {
     if (net.conn && net.conn.open) net.conn.send(msg);
   }
 
@@ -86,11 +105,15 @@
     net.conn = null;
     net.gotState = false;
     if (p) {
-      try { p.destroy(); } catch (e) { /* ya cerrado */ }
+      try {
+        p.destroy();
+      } catch (e) {
+        /* ya cerrado */
+      }
     }
   }
 
-  function enterOnline(m) {
+  function enterOnline(m: 'host' | 'guest') {
     clearTimeout(timer);
     if (mode === 'local') localGame = E.state();
     mode = m;
@@ -99,7 +122,7 @@
     screen = 'game';
   }
 
-  function leaveOnline(error) {
+  function leaveOnline(error?: string) {
     closePeer();
     net.phase = 'menu';
     net.error = error || '';
@@ -110,28 +133,28 @@
     }
   }
 
-  function peerError(err) {
+  function peerError(err: any) {
     const t = err && err.type;
-    // Si ya están conectados, una caída del servidor de presentación no corta el juego.
     if (net.phase === 'playing' && ['network', 'server-error', 'socket-error', 'disconnected'].includes(t)) return;
     if (t === 'unavailable-id' && net.phase === 'hosting') {
       startHost();
       return;
     }
-    const msg = {
-      'peer-unavailable': 'No hay ninguna partida con ese código.',
-      'browser-incompatible': 'Este VS Code no soporta conexiones WebRTC.',
-      network: 'No se pudo conectar al servidor. Revisá tu conexión.',
-      'server-error': 'El servidor de conexión no responde. Probá de nuevo en un rato.',
-      'socket-error': 'No se pudo conectar al servidor. Revisá tu conexión.',
-    }[t] || 'Error de conexión' + (t ? ` (${t})` : '') + '.';
+    const msg =
+      ({
+        'peer-unavailable': 'No hay ninguna partida con ese código.',
+        'browser-incompatible': 'Este VS Code no soporta conexiones WebRTC.',
+        network: 'No se pudo conectar al servidor. Revisá tu conexión.',
+        'server-error': 'El servidor de conexión no responde. Probá de nuevo en un rato.',
+        'socket-error': 'No se pudo conectar al servidor. Revisá tu conexión.',
+      } as Record<string, string>)[t] || 'Error de conexión' + (t ? ` (${t})` : '') + '.';
     leaveOnline(msg);
     screen = 'online';
     update();
   }
 
-  function watchConn(conn, onData) {
-    conn.on('data', (msg) => {
+  function watchConn(conn: any, onData: (msg: any) => void) {
+    conn.on('data', (msg: any) => {
       if (conn !== net.conn || !msg || typeof msg !== 'object') return;
       onData(msg);
     });
@@ -144,7 +167,7 @@
   }
 
   function startHost() {
-    if (!Peer) return peerError({ type: 'browser-incompatible' });
+    if (typeof Peer === 'undefined' || !Peer) return peerError({ type: 'browser-incompatible' });
     closePeer();
     net.phase = 'hosting';
     net.error = '';
@@ -153,7 +176,7 @@
     net.peer = peer;
     peer.on('open', () => render());
     peer.on('error', peerError);
-    peer.on('connection', (conn) => {
+    peer.on('connection', (conn: any) => {
       if (net.conn) {
         conn.on('open', () => conn.close());
         return;
@@ -170,7 +193,7 @@
   }
 
   function startJoin() {
-    if (!Peer) return peerError({ type: 'browser-incompatible' });
+    if (typeof Peer === 'undefined' || !Peer) return peerError({ type: 'browser-incompatible' });
     const code = net.joinInput.toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (code.length < 4) {
       net.error = 'Escribí el código que te pasó tu rival.';
@@ -200,10 +223,10 @@
     render();
   }
 
-  function onHostData(msg) {
+  function onHostData(msg: any) {
     const S = E.state();
     if (msg.type === 'act' && msg.a && typeof msg.a.t === 'string') {
-      const a = { t: msg.a.t };
+      const a: any = { t: msg.a.t };
       if (typeof msg.a.i === 'number') a.i = msg.a.i;
       if (typeof msg.a.v === 'string') a.v = msg.a.v;
       E.act('c', a);
@@ -215,8 +238,7 @@
     update();
   }
 
-  function onGuestData(msg) {
-    // Del otro lado hay una partida en equipo: la conexión pasa a team.js.
+  function onGuestData(msg: any) {
     if (msg.type === 'lobby' || msg.type === 'full') {
       const { peer, conn, code } = net;
       clearTimeout(net.joinTimer);
@@ -238,17 +260,19 @@
 
   // ---------- Render ----------
 
-  function cardHtml(c, cls, attrs) {
+  function cardHtml(c: Card | null, cls?: string, attrs?: string): string {
     if (!c) return `<div class="card slot ${cls || ''}"></div>`;
-    return `<div class="card s-${c.s} ${cls || ''}" ${attrs || ''} title="${c.n} de ${c.s}">` +
-      `<span class="num">${c.n}</span><span class="ico">${ICON[c.s]}</span><span class="num b">${c.n}</span></div>`;
+    return (
+      `<div class="card s-${c.s} ${cls || ''}" ${attrs || ''} title="${c.n} de ${c.s}">` +
+      `<span class="num">${c.n}</span><span class="ico">${ICON[c.s]}</span><span class="num b">${c.n}</span></div>`
+    );
   }
 
-  function btn(label, a, extra, cls) {
+  function btn(label: string, a: string, extra?: string, cls?: string): string {
     return `<button class="${cls || ''}" data-a="${a}" ${extra || ''}>${label}</button>`;
   }
 
-  function statusText(S, act) {
+  function statusText(S: GameState, act: string | null): string {
     const opp = oppLabel();
     if (S.over) return S.over === 'p' ? '🎉 ¡Ganaste el partido!' : `${cap(opp)} ganó el partido.`;
     if (S.handOver) return 'Mano terminada.';
@@ -262,8 +286,7 @@
     return P ? 'Esperando la respuesta de tu rival…' : 'Juega tu rival…';
   }
 
-  // Resumen al final de la mano: cuántos puntos se lleva cada uno y por qué.
-  function summaryHtml(S) {
+  function summaryHtml(S: GameState): string {
     const items = S.handItems.map((it) => `<li><span>${cap(it.reason)}</span><b>+${it.pts} ${name(it.w)}</b></li>`).join('');
     return `<div class="summary">
       <div class="sum-title">${S.over ? statusText(S, null) : `Fin de la mano ${S.handNo}`}</div>
@@ -272,7 +295,7 @@
     </div>`;
   }
 
-  function tabsHtml() {
+  function tabsHtml(): string {
     const playing = mode !== 'local' || Team.active();
     const online = screen === 'online' || playing;
     return `<div class="tabs">
@@ -281,7 +304,7 @@
     </div>`;
   }
 
-  function onlineMenuHtml() {
+  function onlineMenuHtml(): string {
     let h = '<div class="online">';
     if (net.phase === 'hosting') {
       h += `<div class="lbl">Tu código de partida</div>
@@ -306,11 +329,11 @@
     return h;
   }
 
-  function gameHtml() {
+  function gameHtml(): string {
     const S = E.state();
     const act = E.actor();
     const opts = E.options('p');
-    const has = (t, v) => opts.some((o) => o.t === t && (v === undefined || o.v === v));
+    const has = (t: string, v?: string) => opts.some((o: any) => o.t === t && (v === undefined || o.v === v));
     const target = chosenTarget || S.target;
     let h = '';
 
@@ -339,7 +362,7 @@
       const done = S.bazas[i];
       const b = done || (i === S.bazas.length ? S.cur : null);
       const w = done ? done.winner : null;
-      const cls = (side) => (!w ? '' : w === 'tie' ? 'tie' : w === side ? 'win' : 'lose');
+      const cls = (side: string) => (!w ? '' : w === 'tie' ? 'tie' : w === side ? 'win' : 'lose');
       h += `<div class="col">${cardHtml(b && b.c, cls('c'))}${cardHtml(b && b.p, cls('p'))}</div>`;
     }
     h += '</div>';
@@ -358,8 +381,8 @@
     if (S.env.done && S.env.winner) {
       const won = S.env.winner === 'p';
       const detail = S.env.accepted
-        ? (won ? `+${S.env.pts}` : `${name('c')} +${S.env.pts}`)
-        : (won ? `no quiso · +${S.env.pts}` : 'no quisiste');
+        ? won ? `+${S.env.pts}` : `${name('c')} +${S.env.pts}`
+        : won ? `no quiso · +${S.env.pts}` : 'no quisiste';
       h += `<span class="env-result ${won ? 'won' : 'lost'}">Envido <b>${won ? 'ganado' : 'perdido'}</b> · ${detail}</span>`;
     }
     h += '</div>';
@@ -372,11 +395,11 @@
     } else if (act === 'p') {
       if (S.pending) {
         h += btn('Quiero', 'quiero', '', 'yes') + btn('No quiero', 'noquiero', '', 'no');
-        if (has('raise')) h += btn(E.TRUCO_CALL[S.pending.level + 1], 'raise', '', 'call');
+        if (has('raise') && S.pending.kind === 'truco') h += btn(E.TRUCO_CALL[S.pending.level + 1], 'raise', '', 'call');
       } else if (has('truco')) {
         h += btn(E.TRUCO_CALL[S.truco.level + 1], 'truco', '', 'call');
       }
-      ['envido', 'real', 'falta'].forEach((v) => {
+      (['envido', 'real', 'falta'] as EnvidoValue[]).forEach((v) => {
         if (has('env', v)) h += btn(E.ENV_NAME[v], 'env', `data-v="${v}"`, 'env');
       });
       if (has('mazo')) h += btn('Irse al mazo', 'mazo', '', 'secondary');
@@ -403,19 +426,24 @@
     let h = tabsHtml();
     if (Team.active()) h += Team.html();
     else if (screen === 'online' && mode === 'local') h += onlineMenuHtml();
-    else if (mode === 'guest' && !net.gotState) h += '<div class="online"><div class="hint">Conectado. Esperando que arranque la partida…</div></div>';
+    else if (mode === 'guest' && !net.gotState)
+      h += '<div class="online"><div class="hint">Conectado. Esperando que arranque la partida…</div></div>';
     else h += gameHtml();
 
-    // Si estabas escribiendo (por ejemplo tu nombre) y llega una actualización, no perdés el foco.
-    const focused = document.activeElement;
+    const focused = document.activeElement as HTMLElement | null;
     const focusId = focused && focused.id;
-    const caret = focusId && focused.selectionStart;
-    document.getElementById('app').innerHTML = h;
+    const caret = focused instanceof HTMLInputElement ? focused.selectionStart : null;
+    const appEl = document.getElementById('app');
+    if (appEl) appEl.innerHTML = h;
     if (focusId) {
-      const el = document.getElementById(focusId);
+      const el = document.getElementById(focusId) as HTMLInputElement | null;
       if (el) {
         el.focus();
-        try { el.setSelectionRange(caret, caret); } catch (e) { /* no es un campo de texto */ }
+        try {
+          if (caret !== null) el.setSelectionRange(caret, caret);
+        } catch (e) {
+          /* no es un campo de texto */
+        }
       }
     }
   }
@@ -427,11 +455,11 @@
     chosenTarget = null;
   }
 
-  function gameAction(a, el) {
+  function gameAction(a: string, el: HTMLElement) {
     if (mode === 'guest') {
       if (a === 'next' || a === 'new') send({ type: a });
       else {
-        const o = { t: a };
+        const o: any = { t: a };
         if (el.dataset.i !== undefined) o.i = Number(el.dataset.i);
         if (el.dataset.v) o.v = el.dataset.v;
         send({ type: 'act', a: o });
@@ -441,18 +469,18 @@
     if (a === 'next') E.newHand();
     else if (a === 'new') newGame();
     else {
-      const o = { t: a };
+      const o: any = { t: a };
       if (el.dataset.i !== undefined) o.i = Number(el.dataset.i);
       if (el.dataset.v) o.v = el.dataset.v;
-      E.act('p', o);
+      E.act('p', o as Action);
     }
     update();
   }
 
   document.addEventListener('click', (e) => {
-    const el = e.target.closest('[data-a]');
+    const el = (e.target as HTMLElement).closest('[data-a]') as HTMLElement | null;
     if (!el) return;
-    const a = el.dataset.a;
+    const a = el.dataset.a!;
     if (a.startsWith('t-')) {
       Team.click(a, el);
       return;
@@ -492,17 +520,20 @@
   });
 
   document.addEventListener('input', (e) => {
-    if (e.target.id === 'code') net.joinInput = e.target.value;
+    const target = e.target as HTMLInputElement;
+    if (target.id === 'code') net.joinInput = target.value;
   });
 
   document.addEventListener('keydown', (e) => {
-    if (e.target.id === 'code' && e.key === 'Enter') startJoin();
-    if (e.target.id === 't-name' && e.key === 'Enter') Team.commitName(e.target.value);
+    const target = e.target as HTMLInputElement;
+    if (target.id === 'code' && e.key === 'Enter') startJoin();
+    if (target.id === 't-name' && e.key === 'Enter') Team.commitName(target.value);
   });
 
   document.addEventListener('change', (e) => {
-    if (e.target.id === 'target') chosenTarget = Number(e.target.value);
-    if (e.target.id === 't-name') Team.commitName(e.target.value);
+    const target = e.target as HTMLInputElement | HTMLSelectElement;
+    if (target.id === 'target') chosenTarget = Number(target.value);
+    if (target.id === 't-name') Team.commitName(target.value);
   });
 
   window.addEventListener('message', (e) => {
@@ -514,4 +545,4 @@
   });
 
   update();
-})();
+}

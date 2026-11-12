@@ -1,8 +1,9 @@
-// Corre partidos CPU vs CPU y chequea reglas básicas: node test/engine.test.js
-const assert = require('assert');
-const E = require('../media/engine.js');
+// Corre partidos CPU vs CPU y chequea reglas básicas: node dist/test/engine.test.js
+import assert from 'assert';
+import { TrucoEngine as E } from '../src/engine/engine';
+import { Card, CardNumber, Suit } from '../src/types/truco';
 
-const c = (n, s) => ({ n, s });
+const c = (n: CardNumber, s: Suit): Card => ({ n, s });
 assert.strictEqual(E.envidoOf([c(7, 'oro'), c(6, 'oro'), c(1, 'espada')]), 33);
 assert.strictEqual(E.envidoOf([c(12, 'oro'), c(11, 'oro'), c(1, 'espada')]), 20);
 assert.strictEqual(E.envidoOf([c(12, 'oro'), c(5, 'copa'), c(3, 'espada')]), 5);
@@ -46,13 +47,13 @@ for (let g = 0; g < 300; g++) {
     const S = E.state();
     if (!S.handOver) assert.deepStrictEqual(S.score, start, 'el marcador cambió en medio de la mano');
     else if (!S.over) {
-      const sum = (w) => S.handItems.filter((it) => it.w === w).reduce((t, it) => t + it.pts, 0);
+      const sum = (w: 'p' | 'c') => S.handItems.filter((it) => it.w === w).reduce((t, it) => t + it.pts, 0);
       assert.deepStrictEqual(S.score, { p: start.p + sum('p'), c: start.c + sum('c') });
     }
     assert(++steps < 5000, 'partido trabado');
   }
   const S = E.state();
-  assert.strictEqual(S.score[S.over], S.target);
-  wins[S.over]++;
+  assert.strictEqual(S.score[S.over!], S.target);
+  wins[S.over!]++;
 }
 console.log('OK', { wins, hands });
