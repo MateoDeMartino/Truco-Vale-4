@@ -3,6 +3,7 @@ import { TrucoEngine as E } from '../engine/engine';
 import { TrucoTeamUI as Team } from './team';
 import * as Log from './log';
 import * as Room from './room';
+import * as Chat from './chat';
 import { esc } from './esc';
 import { isGameState } from '../engine/validate';
 import { Sound } from './sound';
@@ -130,6 +131,7 @@ export function startUI() {
     clearTimeout(timer);
     if (mode === 'local') localGame = E.state();
     mode = m;
+    Chat.reset();
     net.phase = 'playing';
     net.error = '';
     screen = 'game';
@@ -261,7 +263,29 @@ export function startUI() {
     render();
   }
 
+  // Mensaje de chat del rival en 1 contra 1. Devuelve true si el mensaje era de chat.
+  function onChat(msg: any): boolean {
+    if (msg.type !== 'chat') return false;
+    const text = Chat.cleanText(msg.text);
+    if (text && Chat.allow('rival')) {
+      Chat.add(Chat.cleanFrom(msg.name) || 'Rival', text, false);
+      render();
+    }
+    return true;
+  }
+
+  function sendChat() {
+    const text = Chat.takeDraft();
+    if (!text) return;
+    if (Team.active()) return Team.sendChat(text);
+    if (mode === 'local') return;
+    Chat.add(playerName, text, true);
+    send({ type: 'chat', name: playerName, text });
+    render();
+  }
+
   function onHostData(msg: any) {
+    if (onChat(msg)) return;
     const S = E.state();
     if (msg.type === 'act' && msg.a && typeof msg.a.t === 'string') {
       const a: any = { t: msg.a.t };
@@ -290,6 +314,7 @@ export function startUI() {
       Team.adoptGuest(peer, conn, code, msg);
       return;
     }
+    if (onChat(msg)) return;
     if (msg.type === 'state' && msg.S) {
       // El estado viene del rival: si no tiene la forma esperada se corta la partida.
       if (!isGameState(msg.S)) {
@@ -486,6 +511,8 @@ export function startUI() {
       h += `<details class="log" open><summary>Historial</summary><ul>${S.log.map((l) => `<li>${names(l)}</li>`).join('')}</ul></details>`;
     }
 
+    if (mode !== 'local') h += Chat.html();
+
     if (mode === 'local') {
       h += `<div class="footer">
         <label>Partido a
@@ -567,6 +594,7 @@ export function startUI() {
     const caret = focused instanceof HTMLInputElement ? focused.selectionStart : null;
     const appEl = document.getElementById('app');
     if (appEl) appEl.innerHTML = h;
+    Chat.afterRender();
     if (focusId) {
       const el = document.getElementById(focusId) as HTMLInputElement | null;
       if (el) {
@@ -616,6 +644,7 @@ export function startUI() {
     (e) => {
       const el = e.target as HTMLElement;
       if (el instanceof HTMLDetailsElement && el.classList.contains('criollo-tanteador-details')) Tanteador.setBoardOpen(el.open);
+      if (el instanceof HTMLDetailsElement && el.classList.contains('chat') && Chat.setOpenChanged(el.open)) render();
     },
     true,
   );
@@ -643,6 +672,9 @@ export function startUI() {
         Prefs.setMinimal(!Prefs.isMinimal());
         save();
         render();
+        break;
+      case 'chat-send':
+        sendChat();
         break;
       case 'tab-local':
         Team.leave();
@@ -680,12 +712,14 @@ export function startUI() {
   document.addEventListener('input', (e) => {
     const target = e.target as HTMLInputElement;
     if (target.id === 'code') net.joinInput = target.value;
+    if (target.id === 'chat-input') Chat.setDraft(target.value);
   });
 
   document.addEventListener('keydown', (e) => {
     const target = e.target as HTMLInputElement;
     if (target.id === 'code' && e.key === 'Enter') startJoin();
     if (target.id === 't-name' && e.key === 'Enter') Team.commitName(target.value);
+    if (target.id === 'chat-input' && e.key === 'Enter') sendChat();
   });
 
   document.addEventListener('change', (e) => {

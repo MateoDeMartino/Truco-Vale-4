@@ -59,6 +59,15 @@ async function build() {
       outfile: 'dist/test/sound.test.js',
       sourcemap: true,
     },
+    // Test: chat.test.ts
+    {
+      entryPoints: ['test/chat.test.ts'],
+      bundle: true,
+      platform: 'node',
+      target: 'node18',
+      outfile: 'dist/test/chat.test.js',
+      sourcemap: true,
+    },
   ];
 
   const ctxs = await Promise.all(configs.map((c) => esbuild.context(c)));
