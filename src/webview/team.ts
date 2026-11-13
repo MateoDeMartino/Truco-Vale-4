@@ -2,6 +2,7 @@
 // El anfitrión corre el motor (TrucoTeam) y le manda a cada jugador su vista del juego.
 import { TrucoTeam as T } from '../engine/engine-team';
 import * as Log from './log';
+import { esc } from './esc';
 import { Card, EnvidoValue } from '../types/truco';
 import {
   LobbyPlayer,
@@ -53,11 +54,6 @@ let o: TeamUIOptions; // opciones que pasa ui.ts
 let tm: ActiveTeamGame | null = null; // partida en equipo activa
 let myName = '';
 
-const esc = (s: string) =>
-  String(s).replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c)
-  );
 const cleanName = (s: string | null | undefined) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -320,7 +316,7 @@ function lobbyHtml(): string {
   const myTeam = me ? me.team : null;
   const label = (t: number) => (myTeam === null ? `Equipo ${t + 1}` : t === myTeam ? 'Nosotros' : 'Ellos');
 
-  h += `<div class="lbl">Código de la partida</div><div class="code">${tm.code}</div>`;
+  h += `<div class="lbl">Código de la partida</div><div class="code">${esc(tm.code)}</div>`;
   h += `<div class="actions">${o.btn('Copiar código', 't-copy', '', 'secondary')}</div>`;
 
   h += `<label class="field">Tu nombre <input id="t-name" type="text" maxlength="${NAME_MAX}" value="${esc(myName)}" autocomplete="off" spellcheck="false"></label>`;
@@ -331,7 +327,7 @@ function lobbyHtml(): string {
     h += `<div class="setting">Jugadores ${seg('t-n', [4, 6], L.n, (v) => v)}</div>`;
     h += `<div class="setting">Partido a ${seg('t-target', [15, 30], L.target, (v) => v)}</div>`;
   } else {
-    h += `<div class="hint small">${L.n} jugadores · partido a ${L.target}</div>`;
+    h += `<div class="hint small">${esc(L.n)} jugadores · partido a ${esc(L.target)}</div>`;
   }
 
   h += '<div class="teams">';
@@ -377,19 +373,19 @@ function gameHtml(): string {
   const teamName = (t: number) => (t === myTeam ? 'Nosotros' : 'Ellos');
   const teamCls = (t: number) => (t === myTeam ? 'us' : 'them');
   const names = (l: string) =>
-    l.replace(/\{s(\d+)\}/g, (_, s) => seatName(+s)).replace(/\{t(\d)\}/g, (_, t) => teamName(+t));
+    esc(l).replace(/\{s(\d+)\}/g, (_, s) => seatName(+s)).replace(/\{t(\d)\}/g, (_, t) => teamName(+t));
   let h = '';
 
-  h += `<div class="netbar"><span>👥 ${n} jugadores · ${tm.code}</span>${o.btn('Salir', 't-leave', '', 'secondary')}</div>`;
+  h += `<div class="netbar"><span>👥 ${esc(n)} jugadores · ${esc(tm.code)}</span>${o.btn('Salir', 't-leave', '', 'secondary')}</div>`;
 
   h += `<div class="score team-score">
-    <div class="side us"><span>Nosotros</span><b>${V.score[myTeam]}</b></div>
-    <div class="mid">a ${V.target}<br><small>vale ${T.TRUCO_PTS[V.truco.level]}</small></div>
-    <div class="side them"><span>Ellos</span><b>${V.score[1 - myTeam]}</b></div>
+    <div class="side us"><span>Nosotros</span><b>${esc(V.score[myTeam])}</b></div>
+    <div class="mid">a ${esc(V.target)}<br><small>vale ${T.TRUCO_PTS[V.truco.level]}</small></div>
+    <div class="side them"><span>Ellos</span><b>${esc(V.score[1 - myTeam])}</b></div>
   </div>`;
 
-  const sayCls = V.say ? `from-${V.say.seat === me ? 'p' : 'c'}${V.say.tone ? ' tone-' + V.say.tone : ''}` : 'empty';
-  h += `<div class="bubble ${sayCls}">${V.say ? seatName(V.say.seat) + ': ' + V.say.msg : '&nbsp;'}</div>`;
+  const sayCls = V.say ? `from-${V.say.seat === me ? 'p' : 'c'}${V.say.tone ? ' tone-' + esc(V.say.tone) : ''}` : 'empty';
+  h += `<div class="bubble ${sayCls}">${V.say ? seatName(V.say.seat) + ': ' + esc(V.say.msg) : '&nbsp;'}</div>`;
 
   // Cartas de la baza en curso; si todavía nadie tiró, se ve la baza anterior.
   const showing = V.cur.cards.some((c) => c) ? { cards: V.cur.cards, done: null } : V.last ? { cards: V.last.cards, done: V.last } : null;
@@ -423,7 +419,7 @@ function gameHtml(): string {
   h += '</div></div>';
 
   if (V.handOver) {
-    const items = V.handItems.map((it) => `<li><span>${cap(it.reason)}</span><b>+${it.pts} ${teamName(it.t)}</b></li>`).join('');
+    const items = V.handItems.map((it) => `<li><span>${esc(cap(it.reason))}</span><b>+${esc(it.pts)} ${teamName(it.t)}</b></li>`).join('');
     const title = V.over !== null ? (V.over === myTeam ? '🎉 ¡Ganamos el partido!' : 'Ganaron ellos el partido.') : `Fin de la mano ${V.handNo}`;
     h += `<div class="summary"><div class="sum-title">${title}</div>
       <div class="sum-score"><span>Nosotros</span><b>${V.handPts[myTeam]}</b><span class="dash">–</span><b>${V.handPts[1 - myTeam]}</b><span>Ellos</span></div>
@@ -442,7 +438,7 @@ function gameHtml(): string {
   h += `<div class="info"><span>Tu envido: <b>${T.envidoOf(V.orig[me])}</b>${V.mano === me ? ' · sos mano' : ''}</span>`;
   if (V.env.done) {
     const won = V.env.winner === myTeam;
-    const detail = V.env.accepted ? `${won ? 'Nosotros' : 'Ellos'} +${V.env.pts}` : 'no querido';
+    const detail = V.env.accepted ? `${won ? 'Nosotros' : 'Ellos'} +${esc(V.env.pts)}` : 'no querido';
     h += `<span class="env-result ${won ? 'won' : 'lost'}">Envido <b>${won ? 'ganado' : 'perdido'}</b> · ${detail}</span>`;
   }
   h += '</div>';

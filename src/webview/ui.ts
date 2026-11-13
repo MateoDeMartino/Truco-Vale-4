@@ -2,6 +2,7 @@ import { TrucoEngine as E } from '../engine/engine';
 // Partidas en equipo (4 o 6): las maneja team.ts; acá solo se le pasa lo que necesita.
 import { TrucoTeamUI as Team } from './team';
 import * as Log from './log';
+import { esc } from './esc';
 import { Action, Card, EnvidoValue, GameState } from '../types/truco';
 
 declare function acquireVsCodeApi(): {
@@ -66,7 +67,7 @@ export function startUI() {
   const name = (w: string) => (w === 'p' ? 'Vos' : mode === 'local' ? 'CPU' : 'Rival');
   const oppLabel = () => (mode === 'local' ? 'la CPU' : 'tu rival');
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-  const names = (s: string) => s.replace(/\{(p|c)\}/g, (_, x) => name(x));
+  const names = (s: string) => esc(s).replace(/\{(p|c)\}/g, (_, x) => name(x));
 
   function save() {
     vscode.setState({ v: 1, S: mode === 'local' ? E.state() : localGame, name: playerName });
@@ -276,9 +277,12 @@ export function startUI() {
 
   function cardHtml(c: Card | null, cls?: string, attrs?: string): string {
     if (!c) return `<div class="card slot ${cls || ''}"></div>`;
+    // La carta puede venir del estado que manda el rival: se escapa antes de armar el HTML.
+    const suit = esc(c.s);
+    const num = esc(c.n);
     return (
-      `<div class="card s-${c.s} ${cls || ''}" ${attrs || ''} title="${c.n} de ${c.s}">` +
-      `<span class="num">${c.n}</span><span class="ico">${ICON[c.s]}</span><span class="num b">${c.n}</span></div>`
+      `<div class="card s-${suit} ${cls || ''}" ${attrs || ''} title="${num} de ${suit}">` +
+      `<span class="num">${num}</span><span class="ico">${ICON[c.s] || ''}</span><span class="num b">${num}</span></div>`
     );
   }
 
@@ -302,7 +306,7 @@ export function startUI() {
 
   // Resumen al final de la mano: cuántos puntos se lleva cada uno y por qué.
   function summaryHtml(S: GameState): string {
-    const items = S.handItems.map((it) => `<li><span>${cap(it.reason)}</span><b>+${it.pts} ${name(it.w)}</b></li>`).join('');
+    const items = S.handItems.map((it) => `<li><span>${esc(cap(it.reason))}</span><b>+${esc(it.pts)} ${name(it.w)}</b></li>`).join('');
     return `<div class="summary">
       <div class="sum-title">${S.over ? statusText(S, null) : `Fin de la mano ${S.handNo}`}</div>
       <div class="sum-score"><span>${name('p')}</span><b>${S.handPts.p}</b><span class="dash">–</span><b>${S.handPts.c}</b><span>${name('c')}</span></div>
@@ -327,19 +331,19 @@ export function startUI() {
         <div class="hint">${net.peer && net.peer.open ? 'Pasáselo a tu rival. Esperando que se una…' : 'Conectando…'}</div>
         <div class="actions">${btn('Copiar código', 'copy', '', 'secondary')}${btn('Cancelar', 'cancel', '', 'secondary')}</div>`;
     } else if (net.phase === 'joining') {
-      h += `<div class="hint">Conectando a la partida <b>${net.code}</b>…</div>
+      h += `<div class="hint">Conectando a la partida <b>${esc(net.code)}</b>…</div>
         <div class="actions">${btn('Cancelar', 'cancel', '', 'secondary')}</div>`;
     } else {
       h += `<div class="lbl">Jugá contra alguien en otra PC</div>
         <div class="actions">${btn('1 vs 1', 'host', '', 'call')}${btn('En equipo (4 o 6)', 't-host', '', 'call')}</div>
         <div class="or">o unite con un código</div>
         <div class="join">
-          <input id="code" type="text" maxlength="8" placeholder="CÓDIGO" value="${net.joinInput}" autocomplete="off" spellcheck="false">
+          <input id="code" type="text" maxlength="8" placeholder="CÓDIGO" value="${esc(net.joinInput)}" autocomplete="off" spellcheck="false">
           ${btn('Unirse', 'join')}
         </div>`;
       if (localGame === null && mode === 'local') h += '<div class="hint small">Tu partida contra la CPU queda guardada.</div>';
     }
-    if (net.error) h += `<div class="error">${net.error}</div>`;
+    if (net.error) h += `<div class="error">${esc(net.error)}</div>`;
     h += '</div>';
     return h;
   }
@@ -353,13 +357,13 @@ export function startUI() {
     let h = '';
 
     if (mode !== 'local') {
-      h += `<div class="netbar"><span>🌐 Online · ${mode === 'host' ? 'creaste la partida' : 'partida ' + net.code}</span>${btn('Salir', 'leave', '', 'secondary')}</div>`;
+      h += `<div class="netbar"><span>🌐 Online · ${mode === 'host' ? 'creaste la partida' : 'partida ' + esc(net.code)}</span>${btn('Salir', 'leave', '', 'secondary')}</div>`;
     }
 
     h += `<div class="score">
-      <div class="side ${S.mano === 'p' ? 'is-mano' : ''}"><span>${name('p')}</span><b>${S.score.p}</b></div>
-      <div class="mid">a ${S.target}<br><small>vale ${E.TRUCO_PTS[S.truco.level]}</small></div>
-      <div class="side ${S.mano === 'c' ? 'is-mano' : ''}"><span>${name('c')}</span><b>${S.score.c}</b></div>
+      <div class="side ${S.mano === 'p' ? 'is-mano' : ''}"><span>${name('p')}</span><b>${esc(S.score.p)}</b></div>
+      <div class="mid">a ${esc(S.target)}<br><small>vale ${E.TRUCO_PTS[S.truco.level]}</small></div>
+      <div class="side ${S.mano === 'c' ? 'is-mano' : ''}"><span>${name('c')}</span><b>${esc(S.score.c)}</b></div>
     </div>`;
 
     h += '<div class="cpu-row"><div class="hand cpu">';
@@ -369,8 +373,8 @@ export function startUI() {
     if (S.env.result) h += `<div class="env-badge" title="Envido de ${oppLabel()}">Envido<b>${S.env.result.c}</b></div>`;
     h += '</div>';
 
-    const sayCls = S.say ? `from-${S.say.w}${S.say.tone ? ' tone-' + S.say.tone : ''}` : 'empty';
-    h += `<div class="bubble ${sayCls}">${S.say ? name(S.say.w) + ': ' + S.say.msg : '&nbsp;'}</div>`;
+    const sayCls = S.say ? `from-${esc(S.say.w)}${S.say.tone ? ' tone-' + esc(S.say.tone) : ''}` : 'empty';
+    h += `<div class="bubble ${sayCls}">${S.say ? name(S.say.w) + ': ' + esc(S.say.msg) : '&nbsp;'}</div>`;
 
     h += '<div class="table">';
     for (let i = 0; i < 3; i++) {
@@ -396,8 +400,8 @@ export function startUI() {
     if (S.env.done && S.env.winner) {
       const won = S.env.winner === 'p';
       const detail = S.env.accepted
-        ? won ? `+${S.env.pts}` : `${name('c')} +${S.env.pts}`
-        : won ? `no quiso · +${S.env.pts}` : 'no quisiste';
+        ? won ? `+${esc(S.env.pts)}` : `${name('c')} +${esc(S.env.pts)}`
+        : won ? `no quiso · +${esc(S.env.pts)}` : 'no quisiste';
       h += `<span class="env-result ${won ? 'won' : 'lost'}">Envido <b>${won ? 'ganado' : 'perdido'}</b> · ${detail}</span>`;
     }
     h += '</div>';

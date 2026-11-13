@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 
 export class TrucoViewProvider implements vscode.WebviewViewProvider {
@@ -19,10 +20,11 @@ export class TrucoViewProvider implements vscode.WebviewViewProvider {
     };
     view.webview.html = this.getHtml(view.webview);
     view.webview.onDidReceiveMessage((msg) => {
-      if (msg && msg.type === 'copy' && typeof msg.text === 'string') {
+      if (msg && msg.type === 'copy' && typeof msg.text === 'string' && /^[A-Z0-9]{4,8}$/.test(msg.text)) {
+        // Solo se copian códigos de sala: nada de textos arbitrarios al portapapeles.
         vscode.env.clipboard.writeText(msg.text);
         vscode.window.showInformationMessage(`Código ${msg.text} copiado. Pasáselo a tu rival.`);
-      } else if (msg && msg.type === 'log' && typeof msg.text === 'string') {
+      } else if (msg && msg.type === 'log' && typeof msg.text === 'string' && msg.text.length <= 2000) {
         // Líneas del log de conexión del webview (ver src/webview/log.ts).
         if (msg.level === 'error') this.log.error(msg.text);
         else if (msg.level === 'warn') this.log.warn(msg.text);
@@ -40,7 +42,7 @@ export class TrucoViewProvider implements vscode.WebviewViewProvider {
   private getHtml(webview: vscode.Webview): string {
     const mediaUri = (f: string) => webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'media', f));
     const distUri = (f: string) => webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'dist', 'media', f));
-    const nonce = Array.from({ length: 32 }, () => Math.floor(Math.random() * 36).toString(36)).join('');
+    const nonce = crypto.randomBytes(16).toString('hex');
     return `<!DOCTYPE html>
 <html lang="es">
 <head>
