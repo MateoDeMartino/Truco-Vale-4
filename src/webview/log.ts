@@ -40,11 +40,22 @@ export function init(postMessage: Post): void {
   post = postMessage;
 }
 
+// Servidores STUN: le dicen a cada PC cuál es su IP pública para conectarse directo.
+// Varios por si alguno no responde. Reemplazan los que trae PeerJS por defecto, cuyo TURN
+// (eu-0/us-0.turn.peerjs.com) ya no existe. Todavía no hay TURN de respaldo (issue #3).
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+];
+
 // Opciones para new Peer(): errores y advertencias internas de PeerJS van al log.
 export function peerOptions() {
   return {
     debug: 2,
     logFunction: (lvl: number, ...a: unknown[]) => write(lvl <= 1 ? 'error' : lvl === 2 ? 'warn' : 'info', ['PeerJS:', ...a]),
+    config: { iceServers: ICE_SERVERS },
   };
 }
 
