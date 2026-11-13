@@ -29,8 +29,9 @@ La conexión es directa entre las PCs (WebRTC con [PeerJS](https://peerjs.com), 
 ## Desarrollo
 
 ```bash
-npm test          # partidos simulados CPU vs CPU para chequear las reglas
-npm run package   # genera trucovale4-<versión>.vsix
+pnpm install
+pnpm test          # partidos simulados CPU vs CPU para chequear las reglas
+pnpm run package   # genera trucovale4-<versión>.vsix
 ```
 
 Para instalar el paquete local: `code --install-extension trucovale4-<versión>.vsix`.
