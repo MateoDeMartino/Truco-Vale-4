@@ -2,7 +2,7 @@
   "name": "trucovale4",
   "displayName": "Truco Vale 4",
   "description": "Jugá al truco argentino desde la barra lateral de VS Code, contra la CPU u online: 1 vs 1 o en equipos de 4 y 6.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "icon": "images/icon.png",
   "publisher": "TrucoVale4",
   "license": "MIT",
