@@ -7,7 +7,7 @@ import { esc } from './esc';
 import { isGameState } from '../engine/validate';
 import { Sound } from './sound';
 import { SoundSnap, snapGame, soundsBetween } from './sound-events';
-import { tanteadorHtml } from './tanteador';
+import * as Tanteador from './tanteador';
 import { Action, Card, EnvidoValue, GameState } from '../types/truco';
 
 declare function acquireVsCodeApi(): {
@@ -51,6 +51,7 @@ export function startUI() {
 
   let playerName = (saved && saved.name) || '';
   if (saved && typeof saved.muted === 'boolean') Sound.setMuted(saved.muted);
+  if (saved && saved.style === 'criollo') Tanteador.setCriollo(true);
   Team.init({
     name: playerName,
     btn,
@@ -75,7 +76,10 @@ export function startUI() {
   const names = (s: string) => esc(s).replace(/\{(p|c)\}/g, (_, x) => name(x));
 
   function save() {
-    vscode.setState({ v: 1, S: mode === 'local' ? E.state() : localGame, name: playerName, muted: Sound.getMuted() });
+    vscode.setState({ v: 1, S: mode === 'local' ? E.state() : localGame, name: playerName,
+      muted: Sound.getMuted(),
+      style: Tanteador.isCriollo() ? 'criollo' : 'clasico',
+    });
   }
 
   function update() {
@@ -340,12 +344,16 @@ export function startUI() {
     const playing = mode !== 'local' || Team.active();
     const online = screen === 'online' || playing;
     const muted = Sound.getMuted();
+    const criollo = Tanteador.isCriollo();
     return `<div class="tabs">
       <div class="tabs-group">
         <button class="tab ${online ? '' : 'active'}" data-a="tab-local">Contra la CPU</button>
         <button class="tab ${online ? 'active' : ''}" data-a="tab-online">Online${playing ? ' ●' : ''}</button>
       </div>
-      <button class="sound-toggle" data-a="toggle-sound" title="${muted ? 'Activar sonido' : 'Silenciar'}">${muted ? '🔇' : '🔊'}</button>
+      <div class="tabs-tools">
+        <button class="sound-toggle style-toggle${criollo ? ' on' : ''}" data-a="toggle-style" title="${criollo ? 'Volver al marcador clásico' : 'Usar el tanteador criollo'}">🪵</button>
+        <button class="sound-toggle" data-a="toggle-sound" title="${muted ? 'Activar sonido' : 'Silenciar'}">${muted ? '🔇' : '🔊'}</button>
+      </div>
     </div>`;
   }
 
@@ -386,13 +394,22 @@ export function startUI() {
       h += `<div class="netbar"><span>🌐 Online · ${mode === 'host' ? 'creaste la partida' : 'partida ' + esc(net.code)}</span>${btn('Salir', 'leave', '', 'secondary')}</div>`;
     }
 
-    h += tanteadorHtml({
-      scoreUs: S.score.p,
-      scoreThem: S.score.c,
-      target: S.target,
-      nameUs: name('p'),
-      nameThem: name('c'),
-    });
+    if (Tanteador.isCriollo()) {
+      h += Tanteador.tanteadorHtml({
+        scoreUs: S.score.p,
+        scoreThem: S.score.c,
+        target: S.target,
+        vale: E.TRUCO_PTS[S.truco.level],
+        nameUs: name('p'),
+        nameThem: name('c'),
+      });
+    } else {
+      h += `<div class="score">
+      <div class="side ${S.mano === 'p' ? 'is-mano' : ''}"><span>${name('p')}</span><b>${esc(S.score.p)}</b></div>
+      <div class="mid">a ${esc(S.target)}<br><small>vale ${E.TRUCO_PTS[S.truco.level]}</small></div>
+      <div class="side ${S.mano === 'c' ? 'is-mano' : ''}"><span>${name('c')}</span><b>${esc(S.score.c)}</b></div>
+    </div>`;
+    }
 
     h += '<div class="cpu-row"><div class="hand cpu">';
     if (S.handOver) S.hand.c.forEach((c) => { h += cardHtml(c, 'small'); });
@@ -578,6 +595,17 @@ export function startUI() {
     update();
   }
 
+  // El tablero criollo se redibuja en cada jugada: se recuerda si estaba abierto.
+  // 'toggle' no burbujea, por eso se escucha en la fase de captura.
+  document.addEventListener(
+    'toggle',
+    (e) => {
+      const el = e.target as HTMLElement;
+      if (el instanceof HTMLDetailsElement && el.classList.contains('criollo-tanteador-details')) Tanteador.setBoardOpen(el.open);
+    },
+    true,
+  );
+
   document.addEventListener('click', (e) => {
     const el = (e.target as HTMLElement).closest('[data-a]') as HTMLElement | null;
     if (!el) return;
@@ -589,6 +617,11 @@ export function startUI() {
     switch (a) {
       case 'toggle-sound':
         Sound.toggleMute();
+        save();
+        render();
+        break;
+      case 'toggle-style':
+        Tanteador.setCriollo(!Tanteador.isCriollo());
         save();
         render();
         break;

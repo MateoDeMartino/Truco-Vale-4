@@ -7,8 +7,25 @@ export interface ScoreBoardProps {
   scoreUs: number;
   scoreThem: number;
   target: number; // 15 o 30
+  vale: number; // puntos que vale la mano ahora
   nameUs?: string;
   nameThem?: string;
+}
+
+// ---------- Preferencias ----------
+// El tanteador es opcional: por defecto se ve el marcador clásico y el botón 🪵 lo cambia.
+
+let criollo = false;
+// Si el tablero estaba abierto. Cada actualización vuelve a armar el HTML, así que sin esto
+// el <details> se cerraría solo cada vez que alguien juega.
+let boardOpen = false;
+
+export const isCriollo = () => criollo;
+export function setCriollo(on: boolean): void {
+  criollo = on;
+}
+export function setBoardOpen(open: boolean): void {
+  boardOpen = open;
 }
 
 /**
@@ -20,7 +37,6 @@ export interface ScoreBoardProps {
  * - Se juegan directamente 15 puntos (comúnmente se le dice a 15 o malas).
  */
 export function getScoreBreakdown(score: number, target: number) {
-  const limit = target === 30 ? 15 : 15;
   if (target === 30) {
     if (score <= 15) {
       return {
@@ -159,8 +175,8 @@ function renderMatchesColumn(points: number, maxPoints: number = 30): string {
 /**
  * Genera el componente completo del Tanteador Criollo con estilo de madera y cinta patria.
  */
-export function tanteadorHtml(props: ScoreBoardProps, isOpen: boolean = false): string {
-  const { scoreUs, scoreThem, target, nameUs = 'Nosotros', nameThem = 'Ellos' } = props;
+export function tanteadorHtml(props: ScoreBoardProps, isOpen: boolean = boardOpen): string {
+  const { scoreUs, scoreThem, target, vale, nameUs = 'Nosotros', nameThem = 'Ellos' } = props;
 
   const us = getScoreBreakdown(scoreUs, target);
   const them = getScoreBreakdown(scoreThem, target);
@@ -177,7 +193,7 @@ export function tanteadorHtml(props: ScoreBoardProps, isOpen: boolean = false): 
           </div>
           <div class="criollo-target-gem">
             <b>${esc(target)}</b>
-            <span class="tanteador-icon">🪵 🥢</span>
+            <span class="tanteador-icon">vale ${esc(vale)}</span>
           </div>
           <div class="criollo-sum-team them">
             <span class="team-lbl">${esc(nameThem)}</span>
@@ -228,10 +244,7 @@ export function tanteadorHtml(props: ScoreBoardProps, isOpen: boolean = false): 
         <!-- Fósforos de reserva en la base de madera -->
         <div class="wood-footer-matches">
           <div class="match-bundle">
-            ${Array.from({ length: totalMatchesAvailable }).map((_, idx) => {
-              const rot = (idx - 4.5) * 4; // Abanico de fósforos
-              return `<div class="loose-match" style="transform: rotate(${rot}deg) translateY(${Math.abs(rot)*0.5}px);"></div>`;
-            }).join('')}
+            ${'<div class="loose-match"></div>'.repeat(totalMatchesAvailable)}
           </div>
         </div>
       </div>

@@ -197,6 +197,9 @@ button.call:hover, button.env:hover, button.yes:hover, button.no:hover { filter:
   background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, .15));
   border-radius: 4px;
 }
+.sound-toggle.style-toggle { opacity: .45; }
+.sound-toggle.style-toggle.on { opacity: 1; }
+.tabs-tools { display: flex; }
 
 .online { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 14px 0; text-align: center; }
 .online .lbl { font-weight: 600; }
@@ -585,4 +588,15 @@ button.seg.on { background: var(--vscode-button-background); color: var(--vscode
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   transform-origin: bottom center;
 }
+/* Abanico de fósforos (el CSP del webview no deja usar style="" en el HTML). */
+.loose-match:nth-child(1) { transform: rotate(-18deg) translateY(9px); }
+.loose-match:nth-child(2) { transform: rotate(-14deg) translateY(7px); }
+.loose-match:nth-child(3) { transform: rotate(-10deg) translateY(5px); }
+.loose-match:nth-child(4) { transform: rotate(-6deg) translateY(3px); }
+.loose-match:nth-child(5) { transform: rotate(-2deg) translateY(1px); }
+.loose-match:nth-child(6) { transform: rotate(2deg) translateY(1px); }
+.loose-match:nth-child(7) { transform: rotate(6deg) translateY(3px); }
+.loose-match:nth-child(8) { transform: rotate(10deg) translateY(5px); }
+.loose-match:nth-child(9) { transform: rotate(14deg) translateY(7px); }
+.loose-match:nth-child(10) { transform: rotate(18deg) translateY(9px); }
 
