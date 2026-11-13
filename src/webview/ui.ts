@@ -3,6 +3,7 @@ import { TrucoEngine as E } from '../engine/engine';
 import { TrucoTeamUI as Team } from './team';
 import * as Log from './log';
 import { esc } from './esc';
+import { isGameState } from '../engine/validate';
 import { Action, Card, EnvidoValue, GameState } from '../types/truco';
 
 declare function acquireVsCodeApi(): {
@@ -21,9 +22,10 @@ export function startUI() {
   const PEER_PREFIX = 'quiero-re-truco-';
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const JOIN_TIMEOUT = 15000;
+  const CODE_LEN = 7; // 32^7 ≈ 34 mil millones de salas posibles: no se adivinan probando
 
   const saved = vscode.getState();
-  if (saved && saved.v === 1 && saved.S) E.load(saved.S);
+  if (saved && saved.v === 1 && isGameState(saved.S)) E.load(saved.S);
   else E.newGame(15);
 
   let timer: any = null;
@@ -90,7 +92,7 @@ export function startUI() {
 
   function genCode(): string {
     let c = '';
-    for (let i = 0; i < 5; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+    for (let i = 0; i < CODE_LEN; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
     return c;
   }
 
@@ -267,6 +269,14 @@ export function startUI() {
       return;
     }
     if (msg.type === 'state' && msg.S) {
+      // El estado viene del rival: si no tiene la forma esperada se corta la partida.
+      if (!isGameState(msg.S)) {
+        Log.error('estado inválido recibido del anfitrión');
+        leaveOnline('Tu rival mandó datos inválidos y se cortó la partida.');
+        screen = 'online';
+        update();
+        return;
+      }
       E.load(msg.S);
       net.gotState = true;
       render();
@@ -327,7 +337,7 @@ export function startUI() {
     let h = '<div class="online">';
     if (net.phase === 'hosting') {
       h += `<div class="lbl">Tu código de partida</div>
-        <div class="code">${net.peer && net.peer.open ? net.code : '·····'}</div>
+        <div class="code">${net.peer && net.peer.open ? net.code : '·'.repeat(CODE_LEN)}</div>
         <div class="hint">${net.peer && net.peer.open ? 'Pasáselo a tu rival. Esperando que se una…' : 'Conectando…'}</div>
         <div class="actions">${btn('Copiar código', 'copy', '', 'secondary')}${btn('Cancelar', 'cancel', '', 'secondary')}</div>`;
     } else if (net.phase === 'joining') {
@@ -441,13 +451,30 @@ export function startUI() {
     return h;
   }
 
-  function render() {
+  function buildHtml(): string {
     let h = tabsHtml();
     if (Team.active()) h += Team.html();
     else if (screen === 'online' && mode === 'local') h += onlineMenuHtml();
     else if (mode === 'guest' && !net.gotState)
       h += '<div class="online"><div class="hint">Conectado. Esperando que arranque la partida…</div></div>';
     else h += gameHtml();
+    return h;
+  }
+
+  function render() {
+    let h: string;
+    try {
+      h = buildHtml();
+    } catch (e) {
+      // Red de seguridad: si algo no se puede dibujar, se sale de la partida en vez de dejar el panel colgado.
+      Log.error('error al dibujar la partida', e);
+      const wasOnline = Team.active() || mode !== 'local';
+      Team.leave();
+      leaveOnline(wasOnline ? 'Hubo un problema con la partida online y se cerró.' : '');
+      if (wasOnline) screen = 'online';
+      else E.newGame(15);
+      h = buildHtml();
+    }
 
     // Si estabas escribiendo (por ejemplo tu nombre) y llega una actualización, no perdés el foco.
     const focused = document.activeElement as HTMLElement | null;

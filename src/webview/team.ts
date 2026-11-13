@@ -3,6 +3,7 @@
 import { TrucoTeam as T } from '../engine/engine-team';
 import * as Log from './log';
 import { esc } from './esc';
+import { isLobby, isTeamView } from '../engine/validate';
 import { Card, EnvidoValue } from '../types/truco';
 import {
   LobbyPlayer,
@@ -17,6 +18,7 @@ declare const Peer: any;
 
 const PEER_PREFIX = 'quiero-re-truco-';
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const CODE_LEN = 7;
 const NAME_MAX = 16;
 // Ubicación de cada jugador en la mesa según su distancia (en turnos) a vos.
 const POSITIONS: Record<number, string[]> = {
@@ -59,7 +61,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function genCode(): string {
   let c = '';
-  for (let i = 0; i < 5; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+  for (let i = 0; i < CODE_LEN; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
   return c;
 }
 
@@ -246,22 +248,30 @@ export function adoptGuest(peer: any, conn: any, code: string, firstMsg: any): v
 
 function guestData(msg: any): void {
   if (!tm) return;
+  // Todo esto viene del anfitrión: se revisa la forma antes de usarlo.
   if (msg.type === 'lobby') {
+    if (!isLobby(msg.lobby) || typeof msg.you !== 'string') return badData();
     tm.lobby = msg.lobby;
     tm.myId = msg.you;
-    tm.notice = msg.notice || '';
+    tm.notice = typeof msg.notice === 'string' ? msg.notice.slice(0, 300) : '';
     tm.phase = 'lobby';
     tm.view = null;
     o.render();
   } else if (msg.type === 'state' && msg.S) {
+    if (!isTeamView(msg.S)) return badData();
     tm.view = msg.S;
     tm.phase = 'game';
     o.render();
   } else if (msg.type === 'full') {
     exit('Esa partida ya está llena o ya empezó.');
   } else if (msg.type === 'end') {
-    exit(msg.reason || 'El anfitrión cerró la partida.');
+    exit(typeof msg.reason === 'string' && msg.reason ? msg.reason.slice(0, 300) : 'El anfitrión cerró la partida.');
   }
+}
+
+function badData(): void {
+  Log.error('datos inválidos recibidos del anfitrión');
+  exit('El anfitrión mandó datos inválidos y se cortó la partida.');
 }
 
 function send(msg: any): void {

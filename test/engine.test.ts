@@ -1,6 +1,7 @@
 // Corre partidos CPU vs CPU y chequea reglas básicas: node dist/test/engine.test.js
 import assert from 'assert';
 import { TrucoEngine as E } from '../src/engine/engine';
+import { isGameState } from '../src/engine/validate';
 import { Card, CardNumber, Suit } from '../src/types/truco';
 
 const c = (n: CardNumber, s: Suit): Card => ({ n, s });
@@ -29,6 +30,21 @@ E.load(rv);
 assert.strictEqual(E.actor(), rv.mano);
 if (rv.mano === 'p') assert.strictEqual(E.options('p').filter((o) => o.t === 'play').length, 3);
 
+// Estados rotos (como los que podría mandar un rival malicioso) se rechazan.
+const broken = (f: (s: any) => void) => {
+  const s = JSON.parse(JSON.stringify(rv));
+  f(s);
+  return s;
+};
+assert(isGameState(rv));
+assert(!isGameState(null) && !isGameState({}) && !isGameState('x'));
+assert(!isGameState(broken((s) => delete s.score)));
+assert(!isGameState(broken((s) => (s.bazas = null))));
+assert(!isGameState(broken((s) => (s.hand.p = [{ n: 1, s: '"><b>' }]))));
+assert(!isGameState(broken((s) => (s.truco.level = 9))));
+assert(!isGameState(broken((s) => (s.log = [42]))));
+assert(!isGameState(broken((s) => (s.target = '15'))));
+
 const wins = { p: 0, c: 0 };
 let hands = 0;
 for (let g = 0; g < 300; g++) {
@@ -45,6 +61,8 @@ for (let g = 0; g < 300; g++) {
     }
     assert(E.aiAct(a), 'acción ilegal de la IA');
     const S = E.state();
+    // El validador de estados remotos tiene que aceptar todo lo que produce el motor.
+    assert(isGameState(S) && isGameState(E.rivalView()), 'el validador rechazó un estado real');
     if (!S.handOver) assert.deepStrictEqual(S.score, start, 'el marcador cambió en medio de la mano');
     else if (!S.over) {
       const sum = (w: 'p' | 'c') => S.handItems.filter((it) => it.w === w).reduce((t, it) => t + it.pts, 0);

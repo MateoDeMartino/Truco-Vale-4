@@ -1,6 +1,7 @@
 // Partidos en equipo (4 y 6 jugadores) con jugadas al azar: node dist/test/team.test.js
 import assert from 'assert';
 import { TrucoTeam as T } from '../src/engine/engine-team';
+import { isTeamView } from '../src/engine/validate';
 import { TeamAction } from '../src/types/team';
 
 assert.strictEqual(T.handWinner([0, 'tie'], 1), 0);
@@ -36,6 +37,8 @@ for (const n of [4, 6]) {
       assert(++steps < 20000, 'partido trabado');
       const S = T.state();
       if (!S.handOver) assert.deepStrictEqual(S.score, start, 'el marcador cambió en medio de la mano');
+      // El validador de estados remotos tiene que aceptar todas las vistas que arma el motor.
+      assert(isTeamView(T.viewFor(steps % n)), 'el validador rechazó una vista real');
 
       // Cada jugador ve solo sus cartas mientras dura la mano.
       if (!S.handOver && steps % 7 === 0) {
@@ -50,3 +53,21 @@ for (const n of [4, 6]) {
   }
   console.log(`OK ${n} jugadores`, { wins, hands });
 }
+
+// Vistas rotas (como las que podría mandar un anfitrión malicioso) se rechazan.
+T.newGame(4, ['A', 'B', 'C', 'D'], 15);
+const good = T.viewFor(2);
+const bad = (f: (v: any) => void) => {
+  const v = JSON.parse(JSON.stringify(good));
+  f(v);
+  return v;
+};
+assert(isTeamView(good));
+assert(!isTeamView(null) && !isTeamView({}) && !isTeamView(T.state()), 'sin `me` no es una vista');
+assert(!isTeamView(bad((v) => (v.n = 5))));
+assert(!isTeamView(bad((v) => (v.me = 7))));
+assert(!isTeamView(bad((v) => v.names.pop())));
+assert(!isTeamView(bad((v) => (v.hands = undefined))));
+assert(!isTeamView(bad((v) => (v.score = [1]))));
+assert(!isTeamView(bad((v) => (v.say = { seat: 0, msg: 5, tone: null }))));
+console.log('OK validación de vistas');
