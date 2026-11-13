@@ -59,7 +59,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function genCode(): string {
   let c = '';
-  for (let i = 0; i < 5; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+  for (let i = 0; i < 6; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
   return c;
 }
 
@@ -135,15 +135,28 @@ function newMatch(): void {
 }
 
 function hostData(id: string, msg: any): void {
-  if (!tm || !tm.seats) return;
+  if (!tm || !tm.lobby) return;
   const p = player(id);
-  if (msg.type === 'hello' || msg.type === 'name') {
+  if (msg.type === 'hello') {
+    if (msg.code && msg.code !== tm.code) {
+      Log.warn(`[equipo] Conexión rechazada para ${id}: código incorrecto`);
+      const conn = tm.conns?.get(id);
+      if (conn) {
+        conn.send({ type: 'end', reason: 'Código de partida incorrecto.' });
+        setTimeout(() => conn.close(), 200);
+      }
+      return;
+    }
+    const nm = cleanName(msg.name);
+    if (p && nm) p.name = nm;
+    broadcastLobby();
+  } else if (msg.type === 'name') {
     const nm = cleanName(msg.name);
     if (p && nm) p.name = nm;
     broadcastLobby();
   } else if (msg.type === 'team') {
     setTeam(id, msg.team);
-  } else if (msg.type === 'act' && tm.phase === 'game' && msg.a && typeof msg.a.t === 'string') {
+  } else if (msg.type === 'act' && tm.phase === 'game' && tm.seats && msg.a && typeof msg.a.t === 'string') {
     const a: any = { t: msg.a.t };
     if (typeof msg.a.i === 'number') a.i = msg.a.i;
     if (typeof msg.a.v === 'string') a.v = msg.a.v as EnvidoValue;
@@ -240,7 +253,7 @@ export function adoptGuest(peer: any, conn: any, code: string, firstMsg: any): v
   conn.on('close', () => {
     if (tm && tm.conn === conn) exit('Se cortó la conexión con el anfitrión.');
   });
-  conn.send({ type: 'hello', name: myName });
+  conn.send({ type: 'hello', name: myName, code: tm.code });
   guestData(firstMsg);
 }
 
@@ -254,9 +267,13 @@ function guestData(msg: any): void {
     tm.view = null;
     o.render();
   } else if (msg.type === 'state' && msg.S) {
-    tm.view = msg.S;
-    tm.phase = 'game';
-    o.render();
+    if (T.isValidTeamGameState(msg.S)) {
+      tm.view = msg.S;
+      tm.phase = 'game';
+      o.render();
+    } else {
+      Log.error('Estado de equipo corrupto o inválido recibido del anfitrión.');
+    }
   } else if (msg.type === 'full') {
     exit('Esa partida ya está llena o ya empezó.');
   } else if (msg.type === 'end') {
@@ -299,7 +316,9 @@ function exit(reason?: string): void {
 function view(): TeamGameState {
   if (!tm) throw new Error('No team game');
   if (tm.role === 'host') return T.viewFor(tm.seats!.indexOf('h'));
-  T.load(tm.view!);
+  if (!T.load(tm.view!)) {
+    throw new Error('Estado de partida inválido');
+  }
   return tm.view!;
 }
 

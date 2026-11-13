@@ -90,7 +90,7 @@ export function startUI() {
 
   function genCode(): string {
     let c = '';
-    for (let i = 0; i < 5; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+    for (let i = 0; i < 6; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
     return c;
   }
 
@@ -193,11 +193,6 @@ export function startUI() {
       net.conn = conn;
       Log.watchConn(conn, 'anfitrión');
       watchConn(conn, onHostData);
-      conn.on('open', () => {
-        enterOnline('host');
-        E.newGame(chosenTarget || (localGame && localGame.target) || 15);
-        update();
-      });
     });
     render();
   }
@@ -224,9 +219,7 @@ export function startUI() {
       Log.watchConn(conn, 'invitado');
       watchConn(conn, onGuestData);
       conn.on('open', () => {
-        clearTimeout(net.joinTimer);
-        enterOnline('guest');
-        render();
+        conn.send({ type: 'hello', code });
       });
     });
     net.joinTimer = setTimeout(() => {
@@ -238,6 +231,19 @@ export function startUI() {
   }
 
   function onHostData(msg: any) {
+    if (msg.type === 'hello') {
+      if (msg.code !== net.code) {
+        Log.warn(`Conexión rechazada: código incorrecto (${msg.code})`);
+        send({ type: 'auth-error', reason: 'Código de partida incorrecto.' });
+        setTimeout(() => closePeer(), 300);
+        return;
+      }
+      enterOnline('host');
+      send({ type: 'welcome' });
+      E.newGame(chosenTarget || (localGame && localGame.target) || 15);
+      update();
+      return;
+    }
     const S = E.state();
     if (msg.type === 'act' && msg.a && typeof msg.a.t === 'string') {
       const a: any = { t: msg.a.t };
@@ -266,10 +272,26 @@ export function startUI() {
       Team.adoptGuest(peer, conn, code, msg);
       return;
     }
-    if (msg.type === 'state' && msg.S) {
-      E.load(msg.S);
-      net.gotState = true;
+    if (msg.type === 'welcome') {
+      clearTimeout(net.joinTimer);
+      enterOnline('guest');
       render();
+      return;
+    }
+    if (msg.type === 'auth-error') {
+      clearTimeout(net.joinTimer);
+      leaveOnline(msg.reason || 'No se pudo unir: código de partida incorrecto.');
+      screen = 'online';
+      update();
+      return;
+    }
+    if (msg.type === 'state' && msg.S) {
+      if (E.load(msg.S)) {
+        net.gotState = true;
+        render();
+      } else {
+        Log.error('Estado de juego remoto corrupto o inválido.');
+      }
     }
   }
 

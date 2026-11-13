@@ -25,7 +25,16 @@ assert.deepStrictEqual(rv.hand.p, real.hand.c);
 assert(rv.hand.c.every((x) => x === null) && rv.orig.c === null);
 assert.strictEqual(rv.mano, real.mano === 'p' ? 'c' : 'p');
 assert(rv.log[0].includes(`{${rv.mano}}`));
-E.load(rv);
+// Validación de esquema (Issue #5)
+assert.strictEqual(E.isValidGameState(null), false);
+assert.strictEqual(E.isValidGameState({}), false);
+assert.strictEqual(E.isValidGameState({ ...real, target: 45 }), false);
+assert.strictEqual(E.isValidGameState({ ...real, score: null }), false);
+assert.strictEqual(E.isValidGameState({ ...real, bazas: 'invalid' }), false);
+assert.strictEqual(E.isValidGameState(real), true);
+assert.strictEqual(E.isValidGameState(rv), true);
+assert.strictEqual(E.load({ corrupted: true }), false);
+assert.strictEqual(E.load(rv), true);
 assert.strictEqual(E.actor(), rv.mano);
 if (rv.mano === 'p') assert.strictEqual(E.options('p').filter((o) => o.t === 'play').length, 3);
 

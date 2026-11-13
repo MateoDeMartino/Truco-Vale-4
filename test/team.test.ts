@@ -7,6 +7,12 @@ assert.strictEqual(T.handWinner([0, 'tie'], 1), 0);
 assert.strictEqual(T.handWinner(['tie', 'tie', 'tie'], 1), 1);
 assert.strictEqual(T.handWinner([0, 1], 0), null);
 
+// Validación de esquema (Issue #5)
+assert.strictEqual(T.isValidTeamGameState(null), false);
+assert.strictEqual(T.isValidTeamGameState({}), false);
+assert.strictEqual(T.isValidTeamGameState({ n: 5 }), false);
+assert.strictEqual(T.load({ corrupted: true }), false);
+
 // Elige una jugada legal al azar, casi siempre tirar una carta para que el partido avance.
 function randomMove(seat: number): TeamAction {
   const opts = T.options(seat);

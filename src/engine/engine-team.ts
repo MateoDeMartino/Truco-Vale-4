@@ -345,8 +345,31 @@ export function viewFor(seat: number): TeamGameState {
 
 export const state = (): TeamGameState => S;
 
-export function load(s: TeamGameState): void {
+export function isValidTeamGameState(s: unknown): s is TeamGameState {
+  if (!s || typeof s !== 'object') return false;
+  const o = s as any;
+  if (o.n !== 4 && o.n !== 6) return false;
+  if (!Array.isArray(o.names) || o.names.length !== o.n) return false;
+  if (typeof o.target !== 'number' || (o.target !== 15 && o.target !== 30)) return false;
+  if (!Array.isArray(o.score) || o.score.length !== 2 || typeof o.score[0] !== 'number' || typeof o.score[1] !== 'number') return false;
+  if (typeof o.mano !== 'number' || typeof o.nextMano !== 'number') return false;
+  if (!Array.isArray(o.orig) || !Array.isArray(o.hands)) return false;
+  if (!Array.isArray(o.bazas)) return false;
+  if (!o.cur || !Array.isArray(o.cur.cards)) return false;
+  if (!o.truco || typeof o.truco.level !== 'number') return false;
+  if (!o.env || typeof o.env.done !== 'boolean') return false;
+  if (typeof o.handOver !== 'boolean') return false;
+  if (!Array.isArray(o.handPts) || o.handPts.length !== 2) return false;
+  if (!Array.isArray(o.handItems)) return false;
+  if (typeof o.handNo !== 'number') return false;
+  if (!Array.isArray(o.log)) return false;
+  return true;
+}
+
+export function load(s: unknown): boolean {
+  if (!isValidTeamGameState(s)) return false;
   S = s;
+  return true;
 }
 
 export const TrucoTeam = {
@@ -358,6 +381,7 @@ export const TrucoTeam = {
   viewFor,
   state,
   load,
+  isValidTeamGameState,
   handWinner,
   rank,
   envidoOf,

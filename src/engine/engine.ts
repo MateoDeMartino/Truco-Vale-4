@@ -491,13 +491,34 @@ export function rivalView(): GameState {
 
 export const state = (): GameState => S;
 
-export function load(s: GameState): void {
+export function isValidGameState(s: unknown): s is GameState {
+  if (!s || typeof s !== 'object') return false;
+  const o = s as any;
+  if (typeof o.target !== 'number' || (o.target !== 15 && o.target !== 30)) return false;
+  if (!o.score || typeof o.score.p !== 'number' || typeof o.score.c !== 'number') return false;
+  if (o.mano !== 'p' && o.mano !== 'c') return false;
+  if (o.nextMano !== 'p' && o.nextMano !== 'c') return false;
+  if (!o.orig || !Array.isArray(o.orig.p)) return false;
+  if (!o.hand || !Array.isArray(o.hand.p) || !Array.isArray(o.hand.c)) return false;
+  if (!Array.isArray(o.bazas)) return false;
+  if (!o.cur || typeof o.cur !== 'object') return false;
+  if (!o.truco || typeof o.truco.level !== 'number') return false;
+  if (!o.env || typeof o.env.done !== 'boolean') return false;
+  if (typeof o.handOver !== 'boolean') return false;
+  if (typeof o.handNo !== 'number') return false;
+  if (!Array.isArray(o.log)) return false;
+  return true;
+}
+
+export function load(s: unknown): boolean {
+  if (!isValidGameState(s)) return false;
   S = s;
   // Partidas guardadas por versiones anteriores (sumaban los puntos al momento).
   if (!S.handItems) {
     S.handItems = [];
     S.handPts = { p: 0, c: 0 };
   }
+  return true;
 }
 
 export const TrucoEngine = {
@@ -513,6 +534,7 @@ export const TrucoEngine = {
   rivalView,
   state,
   load,
+  isValidGameState,
   TRUCO_CALL,
   TRUCO_PTS,
   ENV_NAME,
