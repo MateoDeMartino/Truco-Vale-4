@@ -7,6 +7,7 @@ import { esc } from './esc';
 import { isLobby, isTeamView } from '../engine/validate';
 import { SoundSnap, snapTeam } from './sound-events';
 import * as Tanteador from './tanteador';
+import * as Prefs from './prefs';
 import { Card, EnvidoValue } from '../types/truco';
 import {
   LobbyPlayer,
@@ -403,11 +404,13 @@ function gameHtml(): string {
   const seatName = (s: number) => (s === me ? 'Vos' : esc(V.names[s]));
   const teamName = (t: number) => (t === myTeam ? 'Nosotros' : 'Ellos');
   const teamCls = (t: number) => (t === myTeam ? 'us' : 'them');
+  const names = (l: string) =>
+    esc(l).replace(/\{s(\d+)\}/g, (_, s) => seatName(+s)).replace(/\{t(\d)\}/g, (_, t) => teamName(+t));
   let h = '';
 
   h += `<div class="netbar"><span>👥 ${esc(n)} jugadores · ${esc(tm.code)}</span>${o.btn('Salir', 't-leave', '', 'secondary')}</div>`;
 
-  if (Tanteador.isCriollo()) {
+  if (Prefs.isCriollo()) {
     h += Tanteador.tanteadorHtml({
       scoreUs: V.score[myTeam],
       scoreThem: V.score[1 - myTeam],
@@ -475,14 +478,17 @@ function gameHtml(): string {
   });
   h += '</div>';
 
+  const minimal = Prefs.isMinimal();
   const infoParts: string[] = [];
-  if (V.mano === me) infoParts.push('<span>Sos mano</span>');
+  if (!minimal) infoParts.push(`<span>Tu envido: <b>${T.envidoOf(V.orig[me])}</b>${V.mano === me ? ' · sos mano' : ''}</span>`);
+  else if (V.mano === me) infoParts.push('<span>Sos mano</span>');
   if (V.env.done) {
     const won = V.env.winner === myTeam;
     const detail = V.env.accepted ? `${won ? 'Nosotros' : 'Ellos'} +${esc(V.env.pts)}` : 'no querido';
     infoParts.push(`<span class="env-result ${won ? 'won' : 'lost'}">Envido <b>${won ? 'ganado' : 'perdido'}</b> · ${detail}</span>`);
   }
-  if (infoParts.length) h += `<div class="info">${infoParts.join('')}</div>`;
+  // La fila queda aunque esté vacía, así la mesa no salta de alto cuando aparece algo.
+  h += `<div class="info">${infoParts.join('') || '&nbsp;'}</div>`;
 
   h += '<div class="actions">';
   const act = (label: string, t: string, extra?: string, cls?: string) =>
@@ -505,6 +511,10 @@ function gameHtml(): string {
     if (has('mazo')) h += act('Irse al mazo', 'mazo', '', 'secondary');
   }
   h += '</div>';
+
+  if (!minimal) {
+    h += `<details class="log" open><summary>Historial</summary><ul>${V.log.map((l) => `<li>${names(l)}</li>`).join('')}</ul></details>`;
+  }
   return h;
 }
 

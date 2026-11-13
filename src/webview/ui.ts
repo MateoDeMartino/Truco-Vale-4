@@ -8,6 +8,7 @@ import { isGameState } from '../engine/validate';
 import { Sound } from './sound';
 import { SoundSnap, snapGame, soundsBetween } from './sound-events';
 import * as Tanteador from './tanteador';
+import * as Prefs from './prefs';
 import { Action, Card, EnvidoValue, GameState } from '../types/truco';
 
 declare function acquireVsCodeApi(): {
@@ -51,7 +52,8 @@ export function startUI() {
 
   let playerName = (saved && saved.name) || '';
   if (saved && typeof saved.muted === 'boolean') Sound.setMuted(saved.muted);
-  if (saved && saved.style === 'criollo') Tanteador.setCriollo(true);
+  if (saved && saved.style === 'criollo') Prefs.setCriollo(true);
+  if (saved && saved.minimal === true) Prefs.setMinimal(true);
   Team.init({
     name: playerName,
     btn,
@@ -73,11 +75,16 @@ export function startUI() {
   const name = (w: string) => (w === 'p' ? 'Vos' : mode === 'local' ? 'CPU' : 'Rival');
   const oppLabel = () => (mode === 'local' ? 'la CPU' : 'tu rival');
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const names = (s: string) => esc(s).replace(/\{(p|c)\}/g, (_, x) => name(x));
 
   function save() {
-    vscode.setState({ v: 1, S: mode === 'local' ? E.state() : localGame, name: playerName,
+    vscode.setState({
+      v: 1,
+      S: mode === 'local' ? E.state() : localGame,
+      name: playerName,
       muted: Sound.getMuted(),
-      style: Tanteador.isCriollo() ? 'criollo' : 'clasico',
+      style: Prefs.isCriollo() ? 'criollo' : 'clasico',
+      minimal: Prefs.isMinimal(),
     });
   }
 
@@ -343,13 +350,15 @@ export function startUI() {
     const playing = mode !== 'local' || Team.active();
     const online = screen === 'online' || playing;
     const muted = Sound.getMuted();
-    const criollo = Tanteador.isCriollo();
+    const criollo = Prefs.isCriollo();
+    const minimal = Prefs.isMinimal();
     return `<div class="tabs">
       <div class="tabs-group">
         <button class="tab ${online ? '' : 'active'}" data-a="tab-local">Contra la CPU</button>
         <button class="tab ${online ? 'active' : ''}" data-a="tab-online">Online${playing ? ' ●' : ''}</button>
       </div>
       <div class="tabs-tools">
+        <button class="sound-toggle style-toggle${minimal ? ' on' : ''}" data-a="toggle-minimal" title="${minimal ? 'Mostrar tu envido y el historial' : 'Modo minimalista: sin ayuda de envido ni historial'}">🧹</button>
         <button class="sound-toggle style-toggle${criollo ? ' on' : ''}" data-a="toggle-style" title="${criollo ? 'Volver al marcador clásico' : 'Usar el tanteador criollo'}">🪵</button>
         <button class="sound-toggle" data-a="toggle-sound" title="${muted ? 'Activar sonido' : 'Silenciar'}">${muted ? '🔇' : '🔊'}</button>
       </div>
@@ -393,7 +402,7 @@ export function startUI() {
       h += `<div class="netbar"><span>🌐 Online · ${mode === 'host' ? 'creaste la partida' : 'partida ' + esc(net.code)}</span>${btn('Salir', 'leave', '', 'secondary')}</div>`;
     }
 
-    if (Tanteador.isCriollo()) {
+    if (Prefs.isCriollo()) {
       h += Tanteador.tanteadorHtml({
         scoreUs: S.score.p,
         scoreThem: S.score.c,
@@ -440,8 +449,10 @@ export function startUI() {
     });
     h += '</div>';
 
+    const minimal = Prefs.isMinimal();
     const infoParts: string[] = [];
-    if (S.mano === 'p') infoParts.push('<span>Sos mano</span>');
+    if (!minimal) infoParts.push(`<span>Tu envido: <b>${E.envidoOf(S.orig.p)}</b>${S.mano === 'p' ? ' · sos mano' : ''}</span>`);
+    else if (S.mano === 'p') infoParts.push('<span>Sos mano</span>');
     if (S.env.done && S.env.winner) {
       const won = S.env.winner === 'p';
       const detail = S.env.accepted
@@ -449,7 +460,8 @@ export function startUI() {
         : won ? `no quiso · +${esc(S.env.pts)}` : 'no quisiste';
       infoParts.push(`<span class="env-result ${won ? 'won' : 'lost'}">Envido <b>${won ? 'ganado' : 'perdido'}</b> · ${detail}</span>`);
     }
-    if (infoParts.length) h += `<div class="info">${infoParts.join('')}</div>`;
+    // La fila queda aunque esté vacía, así la mesa no salta de alto cuando aparece algo.
+    h += `<div class="info">${infoParts.join('') || '&nbsp;'}</div>`;
 
     h += '<div class="actions">';
     if (S.over) {
@@ -469,6 +481,10 @@ export function startUI() {
       if (has('mazo')) h += btn('Irse al mazo', 'mazo', '', 'secondary');
     }
     h += '</div>';
+
+    if (!minimal) {
+      h += `<details class="log" open><summary>Historial</summary><ul>${S.log.map((l) => `<li>${names(l)}</li>`).join('')}</ul></details>`;
+    }
 
     if (mode === 'local') {
       h += `<div class="footer">
@@ -619,7 +635,12 @@ export function startUI() {
         render();
         break;
       case 'toggle-style':
-        Tanteador.setCriollo(!Tanteador.isCriollo());
+        Prefs.setCriollo(!Prefs.isCriollo());
+        save();
+        render();
+        break;
+      case 'toggle-minimal':
+        Prefs.setMinimal(!Prefs.isMinimal());
         save();
         render();
         break;

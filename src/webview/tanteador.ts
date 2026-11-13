@@ -12,18 +12,12 @@ export interface ScoreBoardProps {
   nameThem?: string;
 }
 
-// ---------- Preferencias ----------
-// El tanteador es opcional: por defecto se ve el marcador clásico y el botón 🪵 lo cambia.
+// El tanteador es opcional (ver prefs.ts): por defecto se ve el marcador clásico.
 
-let criollo = false;
 // Si el tablero estaba abierto. Cada actualización vuelve a armar el HTML, así que sin esto
 // el <details> se cerraría solo cada vez que alguien juega.
 let boardOpen = false;
 
-export const isCriollo = () => criollo;
-export function setCriollo(on: boolean): void {
-  criollo = on;
-}
 export function setBoardOpen(open: boolean): void {
   boardOpen = open;
 }
