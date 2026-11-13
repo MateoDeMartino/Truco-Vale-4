@@ -21,10 +21,10 @@ Los botones de arriba a la derecha cambian cómo se ve la partida (la elección 
 
 ## Jugar online
 
-1. En la pestaña **Online**, tocá **Crear partida** y pasale el código a tu rival.
+1. En la pestaña **Online**, tocá **1 vs 1** y pasale el código a tu rival.
 2. Tu rival, desde su VS Code (con la misma versión de la extensión), escribe el código y toca **Unirse**.
 
-Durante la partida online hay un **💬 Chat** de texto abajo de la mesa (Enter manda el mensaje). Si lo cerrás, muestra cuántos mensajes nuevos llegaron.
+Durante la partida online hay un **💬 Chat** de texto abajo de la mesa (Enter manda el mensaje); en las partidas en equipo también está en la sala de espera. Si lo cerrás, muestra cuántos mensajes nuevos llegaron. Para chatear, los dos tienen que tener la 0.7.0 o posterior.
 
 ### En equipo (4 o 6 jugadores)
 
