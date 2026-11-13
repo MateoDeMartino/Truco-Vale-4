@@ -20,7 +20,7 @@ export function startUI() {
   const CPU_DELAY = 900;
   const PEER_PREFIX = 'quiero-re-truco-';
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const JOIN_TIMEOUT = 15000;
+  const JOIN_TIMEOUT = 30000;
 
   const saved = vscode.getState();
   if (saved && saved.v === 1 && saved.S) E.load(saved.S);

@@ -47,7 +47,7 @@ export class TrucoViewProvider implements vscode.WebviewViewProvider {
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}'; connect-src https://0.peerjs.com wss://0.peerjs.com;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}'; connect-src https://0.peerjs.com wss://0.peerjs.com https://*.metered.ca wss://*.metered.ca;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="${mediaUri('truco.css')}">
   <title>Truco</title>
