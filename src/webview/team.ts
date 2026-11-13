@@ -132,7 +132,8 @@ function newMatch(): void {
 }
 
 function hostData(id: string, msg: any): void {
-  if (!tm || !tm.seats) return;
+  // Ojo: en la sala de espera todavía no hay asientos (tm.seats); solo 'act' los necesita.
+  if (!tm) return;
   const p = player(id);
   if (msg.type === 'hello' || msg.type === 'name') {
     const nm = cleanName(msg.name);
@@ -140,7 +141,7 @@ function hostData(id: string, msg: any): void {
     broadcastLobby();
   } else if (msg.type === 'team') {
     setTeam(id, msg.team);
-  } else if (msg.type === 'act' && tm.phase === 'game' && msg.a && typeof msg.a.t === 'string') {
+  } else if (msg.type === 'act' && tm.phase === 'game' && tm.seats && msg.a && typeof msg.a.t === 'string') {
     const a: any = { t: msg.a.t };
     if (typeof msg.a.i === 'number') a.i = msg.a.i;
     if (typeof msg.a.v === 'string') a.v = msg.a.v as EnvidoValue;
@@ -555,6 +556,8 @@ function myAction(a: any): void {
 }
 
 export function click(a: string, el: HTMLElement): void {
+  // Crear la sala es lo único que se puede hacer sin una partida en equipo activa.
+  if (a === 't-host') return host();
   if (!tm) return;
   switch (a) {
     case 't-host':
