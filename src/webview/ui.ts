@@ -2,6 +2,7 @@ import { TrucoEngine as E } from '../engine/engine';
 // Partidas en equipo (4 o 6): las maneja team.ts; acá solo se le pasa lo que necesita.
 import { TrucoTeamUI as Team } from './team';
 import * as Log from './log';
+import * as Room from './room';
 import { esc } from './esc';
 import { isGameState } from '../engine/validate';
 import { Action, Card, EnvidoValue, GameState } from '../types/truco';
@@ -19,10 +20,8 @@ export function startUI() {
   Log.init((m) => vscode.postMessage(m));
   const ICON: Record<string, string> = { espada: '🗡️', basto: '🪵', oro: '🪙', copa: '🍷' };
   const CPU_DELAY = 900;
-  const PEER_PREFIX = 'quiero-re-truco-';
-  const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const JOIN_TIMEOUT = 15000;
-  const CODE_LEN = 7; // 32^7 ≈ 34 mil millones de salas posibles: no se adivinan probando
+  const CODE_LEN = Room.CODE_LEN;
 
   const saved = vscode.getState();
   if (saved && saved.v === 1 && isGameState(saved.S)) E.load(saved.S);
@@ -89,12 +88,6 @@ export function startUI() {
   }
 
   // ---------- Red ----------
-
-  function genCode(): string {
-    let c = '';
-    for (let i = 0; i < CODE_LEN; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
-    return c;
-  }
 
   function send(msg: any) {
     if (net.conn && net.conn.open) net.conn.send(msg);
@@ -181,24 +174,34 @@ export function startUI() {
     closePeer();
     net.phase = 'hosting';
     net.error = '';
-    net.code = genCode();
-    const peer = new Peer(PEER_PREFIX + net.code, Log.peerOptions());
-    net.peer = peer;
-    Log.watchPeer(peer, 'anfitrión');
-    peer.on('open', () => render());
-    peer.on('error', peerError);
-    peer.on('connection', (conn: any) => {
-      if (net.conn) {
-        conn.on('open', () => conn.close());
-        return;
-      }
-      net.conn = conn;
-      Log.watchConn(conn, 'anfitrión');
-      watchConn(conn, onHostData);
-      conn.on('open', () => {
-        enterOnline('host');
-        E.newGame(chosenTarget || (localGame && localGame.target) || 15);
-        update();
+    const code = (net.code = Room.genCode());
+    Room.peerId(code).then((id) => {
+      // Mientras se calculaba el hash, el usuario pudo cancelar o pedir otro código.
+      if (net.phase !== 'hosting' || net.code !== code || net.peer) return;
+      const peer = new Peer(id, Log.peerOptions());
+      net.peer = peer;
+      Log.watchPeer(peer, 'anfitrión');
+      peer.on('open', () => render());
+      peer.on('error', peerError);
+      peer.on('connection', (conn: any) => {
+        Log.watchConn(conn, 'anfitrión');
+        // Nadie entra hasta mandar el código. Ya con un rival adentro, no entra nadie más.
+        conn.on('open', () =>
+          Room.awaitJoin(
+            conn,
+            code,
+            () => {
+              if (net.conn || net.peer !== peer) return conn.close();
+              net.conn = conn;
+              watchConn(conn, onHostData);
+              enterOnline('host');
+              E.newGame(chosenTarget || (localGame && localGame.target) || 15);
+              update();
+            },
+            'anfitrión',
+            Log.warn,
+          ),
+        );
       });
     });
     render();
@@ -221,14 +224,19 @@ export function startUI() {
     Log.watchPeer(peer, 'invitado');
     peer.on('error', peerError);
     peer.on('open', () => {
-      const conn = peer.connect(PEER_PREFIX + code, { reliable: true });
-      net.conn = conn;
-      Log.watchConn(conn, 'invitado');
-      watchConn(conn, onGuestData);
-      conn.on('open', () => {
-        clearTimeout(net.joinTimer);
-        enterOnline('guest');
-        render();
+      Room.peerId(code).then((id) => {
+        if (net.peer !== peer || net.phase !== 'joining') return;
+        const conn = peer.connect(id, { reliable: true });
+        net.conn = conn;
+        Log.watchConn(conn, 'invitado');
+        watchConn(conn, onGuestData);
+        conn.on('open', () => {
+          clearTimeout(net.joinTimer);
+          // Primero el código: sin eso el anfitrión corta la conexión.
+          conn.send(Room.joinMsg(code, playerName));
+          enterOnline('guest');
+          render();
+        });
       });
     });
     net.joinTimer = setTimeout(() => {

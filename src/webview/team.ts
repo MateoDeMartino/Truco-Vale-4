@@ -2,6 +2,7 @@
 // El anfitrión corre el motor (TrucoTeam) y le manda a cada jugador su vista del juego.
 import { TrucoTeam as T } from '../engine/engine-team';
 import * as Log from './log';
+import * as Room from './room';
 import { esc } from './esc';
 import { isLobby, isTeamView } from '../engine/validate';
 import { Card, EnvidoValue } from '../types/truco';
@@ -16,9 +17,6 @@ import {
 
 declare const Peer: any;
 
-const PEER_PREFIX = 'quiero-re-truco-';
-const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const CODE_LEN = 7;
 const NAME_MAX = 16;
 // Ubicación de cada jugador en la mesa según su distancia (en turnos) a vos.
 const POSITIONS: Record<number, string[]> = {
@@ -58,12 +56,6 @@ let myName = '';
 
 const cleanName = (s: string | null | undefined) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-function genCode(): string {
-  let c = '';
-  for (let i = 0; i < CODE_LEN; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
-  return c;
-}
 
 export function init(opts: TeamUIOptions): void {
   o = opts;
@@ -160,14 +152,12 @@ function hostData(id: string, msg: any): void {
 export function host(): void {
   if (typeof Peer === 'undefined' || !Peer) return o.onExit('Este VS Code no soporta conexiones WebRTC.');
   leave();
-  const code = genCode();
-  const peer = new Peer(PEER_PREFIX + code, Log.peerOptions());
-  Log.watchPeer(peer, 'anfitrión equipo');
-  tm = {
+  const code = Room.genCode();
+  const game: ActiveTeamGame = {
     role: 'host',
     phase: 'lobby',
     code,
-    peer,
+    peer: null,
     ready: false,
     conns: new Map(),
     seq: 0,
@@ -175,36 +165,59 @@ export function host(): void {
     notice: '',
     lobby: { n: 4, target: 15, players: [{ id: 'h', name: myName, team: null }] },
   };
-  peer.on('open', () => {
-    if (tm) tm.ready = true;
-    o.render();
-  });
-  peer.on('error', (err: any) => {
-    if (err && err.type === 'unavailable-id' && tm && tm.phase === 'lobby' && !tm.ready) return host();
-    if (tm && tm.ready && ['network', 'server-error', 'socket-error', 'disconnected'].includes(err && err.type)) return;
-    exit('Error de conexión' + (err && err.type ? ` (${err.type})` : '') + '.');
-  });
-  peer.on('connection', (conn: any) => {
-    Log.watchConn(conn, 'anfitrión equipo');
-    conn.on('open', () => {
-      if (!tm || tm.phase !== 'lobby' || !tm.lobby || tm.lobby.players.length >= tm.lobby.n) {
-        conn.send({ type: 'full' });
-        setTimeout(() => conn.close(), 500);
-        return;
-      }
-      const id = 'g' + ++tm.seq!;
-      tm.conns!.set(id, conn);
-      tm.lobby.players.push({ id, name: 'Jugador ' + (tm.lobby.players.length + 1), team: null });
-      conn.on('data', (msg: any) => {
-        if (tm && tm.conns!.get(id) === conn && msg && typeof msg === 'object') hostData(id, msg);
-      });
-      conn.on('close', () => {
-        if (tm && tm.conns!.get(id) === conn) playerLeft(id);
-      });
-      broadcastLobby();
+  tm = game;
+  o.render();
+  Room.peerId(code).then((pid) => {
+    if (tm !== game) return; // salió (o creó otra sala) mientras se calculaba el hash
+    const peer = new Peer(pid, Log.peerOptions());
+    game.peer = peer;
+    Log.watchPeer(peer, 'anfitrión equipo');
+    peer.on('open', () => {
+      if (tm === game) game.ready = true;
+      o.render();
+    });
+    peer.on('error', (err: any) => {
+      if (tm !== game) return;
+      if (err && err.type === 'unavailable-id' && game.phase === 'lobby' && !game.ready) return host();
+      if (game.ready && ['network', 'server-error', 'socket-error', 'disconnected'].includes(err && err.type)) return;
+      exit('Error de conexión' + (err && err.type ? ` (${err.type})` : '') + '.');
+    });
+    peer.on('connection', (conn: any) => {
+      Log.watchConn(conn, 'anfitrión equipo');
+      // Nadie entra a la sala hasta mandar el código correcto.
+      conn.on('open', () => Room.awaitJoin(conn, code, (msg) => admit(conn, msg), 'anfitrión equipo', Log.warn));
     });
   });
-  o.render();
+}
+
+// Suma a la sala a un invitado que ya mandó el código.
+function admit(conn: any, join: any): void {
+  if (!tm || tm.role !== 'host' || tm.phase !== 'lobby' || !tm.lobby || tm.lobby.players.length >= tm.lobby.n) {
+    conn.send({ type: 'full' });
+    setTimeout(() => conn.close(), 500);
+    return;
+  }
+  const id = 'g' + ++tm.seq!;
+  tm.conns!.set(id, conn);
+  const nm = cleanName(join.name);
+  tm.lobby.players.push({ id, name: nm || 'Jugador ' + (tm.lobby.players.length + 1), team: null });
+  conn.on('data', (msg: any) => {
+    if (tm && tm.conns!.get(id) === conn && msg && typeof msg === 'object') hostData(id, msg);
+  });
+  conn.on('close', () => {
+    if (tm && tm.conns!.get(id) === conn) playerLeft(id);
+  });
+  broadcastLobby();
+}
+
+// El anfitrión saca a alguien de la sala de espera (por ejemplo, alguien que no conoce).
+function kick(id: string): void {
+  if (!tm || tm.role !== 'host' || tm.phase !== 'lobby' || id === 'h') return;
+  const conn = tm.conns!.get(id);
+  if (!conn) return;
+  if (conn.open) conn.send({ type: 'end', reason: 'El anfitrión te sacó de la sala.' });
+  playerLeft(id);
+  setTimeout(() => conn.close(), 300);
 }
 
 function canStart(): boolean {
@@ -313,6 +326,12 @@ function view(): TeamGameState {
   return tm.view!;
 }
 
+// Botón para que el anfitrión saque a un invitado de la sala.
+function kickBtn(id: string): string {
+  if (!tm || tm.role !== 'host' || id === 'h') return '';
+  return ' ' + o.btn('✕', 't-kick', `data-v="${esc(id)}" title="Sacar de la sala"`, 'kick');
+}
+
 function lobbyHtml(): string {
   if (!tm) return '';
   const L = tm.lobby;
@@ -346,7 +365,7 @@ function lobbyHtml(): string {
     const cls = myTeam === null ? `t${t}` : t === myTeam ? 'us' : 'them';
     h += `<div class="team-col ${cls}"><div class="team-name">${label(t)} <small>${members.length}/${L.n / 2}</small></div><ul>`;
     members.forEach((p) => {
-      h += `<li>${esc(p.name)}${p.id === tm!.myId ? ' <small>(vos)</small>' : ''}${p.id === 'h' ? ' ★' : ''}</li>`;
+      h += `<li>${esc(p.name)}${p.id === tm!.myId ? ' <small>(vos)</small>' : ''}${p.id === 'h' ? ' ★' : ''}${kickBtn(p.id)}</li>`;
     });
     for (let k = members.length; k < L.n / 2; k++) h += '<li class="empty">libre</li>';
     h += '</ul>';
@@ -356,7 +375,7 @@ function lobbyHtml(): string {
   h += '</div>';
 
   const loose = L.players.filter((p) => p.team === null);
-  if (loose.length) h += `<div class="hint small">Sin equipo: ${loose.map((p) => esc(p.name)).join(', ')}</div>`;
+  if (loose.length) h += `<div class="hint small">Sin equipo: ${loose.map((p) => esc(p.name) + kickBtn(p.id)).join(', ')}</div>`;
 
   if (isHost) {
     const missing = L.n - L.players.length;
@@ -551,6 +570,9 @@ export function click(a: string, el: HTMLElement): void {
       break;
     case 't-start':
       start();
+      break;
+    case 't-kick':
+      kick(String(el.dataset.v || ''));
       break;
     case 't-next':
       if (tm.role === 'host') nextHand();

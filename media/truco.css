@@ -163,6 +163,8 @@ button.call { background: #c62828; color: #fff; font-weight: 700; }
 button.env { background: #a87400; color: #fff; }
 button.yes { background: #2e7d32; color: #fff; }
 button.no { background: #6d6d6d; color: #fff; }
+button.kick { background: transparent; color: inherit; opacity: .6; padding: 0 4px; }
+button.kick:hover { background: #c62828; color: #fff; opacity: 1; }
 button.call:hover, button.env:hover, button.yes:hover, button.no:hover { filter: brightness(1.15); }
 
 .log summary { cursor: pointer; font-size: 11px; opacity: .75; }
