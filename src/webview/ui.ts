@@ -5,6 +5,7 @@ import * as Log from './log';
 import * as Room from './room';
 import { esc } from './esc';
 import { isGameState } from '../engine/validate';
+import { Sound } from './sound';
 import { Action, Card, EnvidoValue, GameState } from '../types/truco';
 
 declare function acquireVsCodeApi(): {
@@ -47,6 +48,7 @@ export function startUI() {
   };
 
   let playerName = (saved && saved.name) || '';
+  if (saved && typeof saved.muted === 'boolean') Sound.setMuted(saved.muted);
   Team.init({
     name: playerName,
     btn,
@@ -71,7 +73,7 @@ export function startUI() {
   const names = (s: string) => esc(s).replace(/\{(p|c)\}/g, (_, x) => name(x));
 
   function save() {
-    vscode.setState({ v: 1, S: mode === 'local' ? E.state() : localGame, name: playerName });
+    vscode.setState({ v: 1, S: mode === 'local' ? E.state() : localGame, name: playerName, muted: Sound.getMuted() });
   }
 
   function update() {
@@ -81,7 +83,23 @@ export function startUI() {
     clearTimeout(timer);
     if (mode === 'local' && !Team.active() && E.actor() === 'c') {
       timer = setTimeout(() => {
+        const prev = E.state();
         E.aiAct('c');
+        const current = E.state();
+        // Determinar qué hizo la CPU para reproducir el sonido adecuado
+        const prevCards = (prev.cur.p ? 1 : 0) + (prev.cur.c ? 1 : 0);
+        const curCards = (current.cur.p ? 1 : 0) + (current.cur.c ? 1 : 0);
+        if (curCards > prevCards || current.bazas.length > prev.bazas.length) {
+          Sound.playCard();
+        } else if (current.pending && current.pending.kind === 'truco') {
+          Sound.playTruco(current.pending.level);
+        } else if (current.pending && current.pending.kind === 'envido') {
+          Sound.playEnvido();
+        } else if (prev.pending && !current.pending) {
+          if (current.env.accepted || current.truco.level > prev.truco.level) Sound.playQuiero();
+          else Sound.playNoQuiero();
+        }
+        checkStateSounds(prev, current);
         update();
       }, CPU_DELAY);
     }
@@ -248,17 +266,20 @@ export function startUI() {
   }
 
   function onHostData(msg: any) {
-    const S = E.state();
+    const prev = E.state();
     if (msg.type === 'act' && msg.a && typeof msg.a.t === 'string') {
       const a: any = { t: msg.a.t };
       if (typeof msg.a.i === 'number') a.i = msg.a.i;
       if (typeof msg.a.v === 'string') a.v = msg.a.v;
+      triggerSoundForAction(a, prev);
       E.act('c', a);
-    } else if (msg.type === 'next' && S.handOver && !S.over) {
+    } else if (msg.type === 'next' && prev.handOver && !prev.over) {
       E.newHand();
-    } else if (msg.type === 'new' && S.over) {
-      E.newGame(S.target);
+    } else if (msg.type === 'new' && prev.over) {
+      E.newGame(prev.target);
     }
+    const current = E.state();
+    checkStateSounds(prev, current);
     update();
   }
 
@@ -285,7 +306,24 @@ export function startUI() {
         update();
         return;
       }
+      const prev = E.state();
       E.load(msg.S);
+      const current = E.state();
+      if (net.gotState) {
+        const prevCards = (prev.cur.p ? 1 : 0) + (prev.cur.c ? 1 : 0);
+        const curCards = (current.cur.p ? 1 : 0) + (current.cur.c ? 1 : 0);
+        if (curCards > prevCards || current.bazas.length > prev.bazas.length) {
+          Sound.playCard();
+        } else if (current.pending && current.pending.kind === 'truco' && (!prev.pending || prev.pending.kind !== 'truco' || prev.pending.level < current.pending.level)) {
+          Sound.playTruco(current.pending.level);
+        } else if (current.pending && current.pending.kind === 'envido' && (!prev.pending || prev.pending.kind !== 'envido')) {
+          Sound.playEnvido();
+        } else if (prev.pending && !current.pending) {
+          if (current.env.accepted || current.truco.level > prev.truco.level) Sound.playQuiero();
+          else Sound.playNoQuiero();
+        }
+        checkStateSounds(prev, current);
+      }
       net.gotState = true;
       render();
     }
@@ -335,9 +373,13 @@ export function startUI() {
   function tabsHtml(): string {
     const playing = mode !== 'local' || Team.active();
     const online = screen === 'online' || playing;
+    const muted = Sound.getMuted();
     return `<div class="tabs">
-      <button class="tab ${online ? '' : 'active'}" data-a="tab-local">Contra la CPU</button>
-      <button class="tab ${online ? 'active' : ''}" data-a="tab-online">Online${playing ? ' ●' : ''}</button>
+      <div class="tabs-group">
+        <button class="tab ${online ? '' : 'active'}" data-a="tab-local">Contra la CPU</button>
+        <button class="tab ${online ? 'active' : ''}" data-a="tab-online">Online${playing ? ' ●' : ''}</button>
+      </div>
+      <button class="sound-toggle" data-a="toggle-sound" title="${muted ? 'Activar sonido' : 'Silenciar'}">${muted ? '🔇' : '🔊'}</button>
     </div>`;
   }
 
@@ -510,13 +552,42 @@ export function startUI() {
     chosenTarget = null;
   }
 
+  function triggerSoundForAction(a: Action, stateBefore: GameState) {
+    if (a.t === 'play') {
+      Sound.playCard();
+    } else if (a.t === 'truco' || a.t === 'raise') {
+      const level = a.t === 'truco' ? stateBefore.truco.level + 1 : (stateBefore.pending && stateBefore.pending.kind === 'truco' ? stateBefore.pending.level + 1 : 1);
+      Sound.playTruco(level);
+    } else if (a.t === 'env') {
+      Sound.playEnvido();
+    } else if (a.t === 'quiero') {
+      Sound.playQuiero();
+    } else if (a.t === 'noquiero' || a.t === 'mazo') {
+      Sound.playNoQuiero();
+    }
+  }
+
+  function checkStateSounds(prev: GameState, current: GameState) {
+    if (current.over && !prev.over) {
+      if (current.over === 'p') Sound.playWinMatch();
+      else Sound.playNoQuiero();
+    } else if (current.handOver && !prev.handOver) {
+      // Fin de mano
+      const won = current.score.p - prev.score.p > current.score.c - prev.score.c;
+      if (won) Sound.playWinHand();
+      else Sound.playCard();
+    }
+  }
+
   function gameAction(a: string, el: HTMLElement) {
+    const prev = E.state();
     if (mode === 'guest') {
       if (a === 'next' || a === 'new') send({ type: a });
       else {
         const o: any = { t: a };
         if (el.dataset.i !== undefined) o.i = Number(el.dataset.i);
         if (el.dataset.v) o.v = el.dataset.v;
+        triggerSoundForAction(o, prev);
         send({ type: 'act', a: o });
       }
       return;
@@ -527,8 +598,11 @@ export function startUI() {
       const o: any = { t: a };
       if (el.dataset.i !== undefined) o.i = Number(el.dataset.i);
       if (el.dataset.v) o.v = el.dataset.v;
+      triggerSoundForAction(o, prev);
       E.act('p', o as Action);
     }
+    const current = E.state();
+    checkStateSounds(prev, current);
     update();
   }
 
@@ -541,6 +615,11 @@ export function startUI() {
       return;
     }
     switch (a) {
+      case 'toggle-sound':
+        Sound.toggleMute();
+        save();
+        render();
+        break;
       case 'tab-local':
         Team.leave();
         leaveOnline();
