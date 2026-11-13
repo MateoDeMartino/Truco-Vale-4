@@ -169,7 +169,8 @@ button.call:hover, button.env:hover, button.yes:hover, button.no:hover { filter:
 .log ul { margin: 4px 0 0; padding-left: 16px; max-height: 140px; overflow-y: auto; font-size: 11px; opacity: .85; }
 .log li { margin: 1px 0; }
 
-.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .35)); }
+.tabs { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .35)); }
+.tabs-group { display: flex; flex: 1; gap: 2px; }
 .tabs .tab {
   flex: 1;
   background: transparent;
@@ -180,6 +181,20 @@ button.call:hover, button.env:hover, button.yes:hover, button.no:hover { filter:
 }
 .tabs .tab:hover { background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, .15)); opacity: 1; }
 .tabs .tab.active { opacity: 1; font-weight: 600; border-bottom-color: var(--vscode-focusBorder); }
+.sound-toggle {
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+  opacity: .75;
+  transition: opacity .15s, transform .1s;
+}
+.sound-toggle:hover {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, .15));
+  border-radius: 4px;
+}
 
 .online { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 14px 0; text-align: center; }
 .online .lbl { font-weight: 600; }
