@@ -53,6 +53,7 @@ let S: TeamGameState;
 const next = (seat: number) => (seat + 1) % S.n;
 const seatsOf = (t: TeamId) => [...Array(S.n).keys()].filter((s) => teamOf(s) === t);
 
+// En el historial: {sN} = jugador del asiento N, {tN} = equipo N. La interfaz pone los nombres.
 function log(msg: string): void {
   S.log.unshift(msg);
   if (S.log.length > 50) S.log.length = 50;
@@ -175,6 +176,7 @@ export function legal(seat: number, a: TeamAction): boolean {
   return options(seat).some((o) => o.t === a.t && (o as any).i === (a as any).i && (o as any).v === (a as any).v);
 }
 
+// Los puntos se anotan durante la mano y pasan al marcador recién cuando termina.
 function addPts(t: TeamId, pts: number, reason: string): void {
   S.handItems.push({ t, pts, reason });
   S.handPts[t] += pts;
@@ -202,6 +204,7 @@ function play(seat: number, i: number): void {
     S.turn = next(seat);
     return;
   }
+  // Gana la carta más alta; si empatan cartas de los dos equipos, es parda.
   let best = -1;
   let winners: number[] = [];
   for (let k = 0; k < S.n; k++) {
@@ -235,6 +238,7 @@ function play(seat: number, i: number): void {
   S.turn = leader;
 }
 
+// Cuenta el mejor envido de cada equipo; si empatan, gana el que está más cerca del mano.
 function resolveEnvido(accepted: boolean): void {
   const P = S.pending;
   if (!P || P.kind !== 'envido') return;
@@ -328,6 +332,7 @@ export function act(seat: number, a: TeamAction): boolean {
 }
 
 // Vista para el jugador del asiento `seat`: oculta las cartas de los demás mientras dura la mano.
+// Copia del estado para el jugador de `seat`: solo ve sus propias cartas (y las de todos al terminar la mano).
 export function viewFor(seat: number): TeamGameState {
   const v: TeamGameState = JSON.parse(JSON.stringify(S));
   v.me = seat;

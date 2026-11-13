@@ -1,6 +1,7 @@
 // Partidas online en equipo (4 o 6 jugadores): sala de espera, mesa y conexiones.
 // El anfitrión corre el motor (TrucoTeam) y le manda a cada jugador su vista del juego.
 import { TrucoTeam as T } from '../engine/engine-team';
+import * as Log from './log';
 import { Card, EnvidoValue } from '../types/truco';
 import {
   LobbyPlayer,
@@ -48,8 +49,8 @@ interface ActiveTeamGame {
   seats?: string[];
 }
 
-let o: TeamUIOptions;
-let tm: ActiveTeamGame | null = null;
+let o: TeamUIOptions; // opciones que pasa ui.ts
+let tm: ActiveTeamGame | null = null; // partida en equipo activa
 let myName = '';
 
 const esc = (s: string) =>
@@ -70,6 +71,8 @@ export function init(opts: TeamUIOptions): void {
   o = opts;
   myName = cleanName(opts.name) || 'Jugador';
 }
+
+// ---------- Anfitrión ----------
 
 function player(id: string): LobbyPlayer | undefined {
   return tm?.lobby?.players.find((p) => p.id === id);
@@ -160,7 +163,8 @@ export function host(): void {
   if (typeof Peer === 'undefined' || !Peer) return o.onExit('Este VS Code no soporta conexiones WebRTC.');
   leave();
   const code = genCode();
-  const peer = new Peer(PEER_PREFIX + code, { debug: 0 });
+  const peer = new Peer(PEER_PREFIX + code, Log.peerOptions());
+  Log.watchPeer(peer, 'anfitrión equipo');
   tm = {
     role: 'host',
     phase: 'lobby',
@@ -183,6 +187,7 @@ export function host(): void {
     exit('Error de conexión' + (err && err.type ? ` (${err.type})` : '') + '.');
   });
   peer.on('connection', (conn: any) => {
+    Log.watchConn(conn, 'anfitrión equipo');
     conn.on('open', () => {
       if (!tm || tm.phase !== 'lobby' || !tm.lobby || tm.lobby.players.length >= tm.lobby.n) {
         conn.send({ type: 'full' });
@@ -210,6 +215,7 @@ function canStart(): boolean {
   return L.players.length === L.n && ([0, 1] as TeamId[]).every((t) => L.players.filter((p) => p.team === t).length === L.n / 2);
 }
 
+// Sienta a los equipos intercalados: equipo 0 en los asientos pares, equipo 1 en los impares.
 function start(): void {
   if (!tm || tm.role !== 'host' || !canStart() || !tm.lobby) return;
   const L = tm.lobby;
@@ -222,6 +228,9 @@ function start(): void {
   broadcastState();
 }
 
+// ---------- Invitado ----------
+
+// ui.ts abre la conexión con el código; si del otro lado hay una partida en equipo, nos la pasa.
 export function adoptGuest(peer: any, conn: any, code: string, firstMsg: any): void {
   leave();
   tm = { role: 'guest', phase: 'lobby', code, peer, conn, myId: null, lobby: null, view: null, notice: '' };
@@ -263,6 +272,8 @@ function send(msg: any): void {
   if (tm && tm.conn && tm.conn.open) tm.conn.send(msg);
 }
 
+// ---------- Salir ----------
+
 export function leave(): void {
   if (!tm) return;
   const t = tm;
@@ -286,6 +297,9 @@ function exit(reason?: string): void {
   o.onExit(reason || '');
 }
 
+// ---------- Vista ----------
+
+// Estado visto por este jugador (el anfitrión arma el suyo; el invitado usa el que le llega).
 function view(): TeamGameState {
   if (!tm) throw new Error('No team game');
   if (tm.role === 'host') return T.viewFor(tm.seats!.indexOf('h'));
@@ -476,6 +490,8 @@ export function html(): string {
   return tm.phase === 'lobby' ? lobbyHtml() : gameHtml();
 }
 
+// ---------- Eventos ----------
+
 function myAction(a: any): void {
   if (!tm) return;
   if (tm.role === 'host') {
@@ -511,6 +527,7 @@ export function click(a: string, el: HTMLElement): void {
         } else {
           tm.lobby.n = n;
           tm.notice = '';
+          // Si un equipo quedó con más gente de la que entra, los que sobran quedan sin equipo.
           [0, 1].forEach((t) => {
             tm!.lobby!.players.filter((p) => p.team === t).slice(n / 2).forEach((p) => {
               p.team = null;

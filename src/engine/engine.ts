@@ -343,6 +343,7 @@ export function act(w: PlayerSide, a: Action): boolean {
 
 // ---------- CPU ----------
 
+// Política simple de juego de cartas, usada por la CPU y por las simulaciones.
 function chooseIdx(hand: Card[], opp: Card | null, bazaIdx: number, wonFirst: boolean): number {
   const idx = hand.map((_, i) => i).sort((a, b) => rank(hand[a]) - rank(hand[b]));
   if (opp) {
@@ -456,7 +457,8 @@ export function aiAct(me: PlayerSide): boolean {
   return act(me, a) || act(me, options(me)[0]);
 }
 
-// Copia del estado vista desde 'c' (el rival online)
+// Copia del estado vista desde 'c' (el rival online): se intercambian los lados
+// para que su interfaz lo muestre como 'p', y se ocultan las cartas que no debe ver.
 export function rivalView(): GameState {
   const v: GameState = JSON.parse(JSON.stringify(S));
   const sw = (x: any) => (x === 'p' ? 'c' : x === 'c' ? 'p' : x);
@@ -491,6 +493,7 @@ export const state = (): GameState => S;
 
 export function load(s: GameState): void {
   S = s;
+  // Partidas guardadas por versiones anteriores (sumaban los puntos al momento).
   if (!S.handItems) {
     S.handItems = [];
     S.handPts = { p: 0, c: 0 };

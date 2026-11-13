@@ -1,5 +1,7 @@
 import { TrucoEngine as E } from '../engine/engine';
+// Partidas en equipo (4 o 6): las maneja team.ts; acá solo se le pasa lo que necesita.
 import { TrucoTeamUI as Team } from './team';
+import * as Log from './log';
 import { Action, Card, EnvidoValue, GameState } from '../types/truco';
 
 declare function acquireVsCodeApi(): {
@@ -12,6 +14,7 @@ declare const Peer: any;
 
 export function startUI() {
   const vscode = acquireVsCodeApi();
+  Log.init((m) => vscode.postMessage(m));
   const ICON: Record<string, string> = { espada: '🗡️', basto: '🪵', oro: '🪙', copa: '🍷' };
   const CPU_DELAY = 900;
   const PEER_PREFIX = 'quiero-re-truco-';
@@ -29,7 +32,7 @@ export function startUI() {
   // 'host' = partida online creada acá, 'guest' = unido a la partida de otro.
   let mode: 'local' | 'host' | 'guest' = 'local';
   let screen: 'game' | 'online' = 'game';
-  let localGame: GameState | null = null;
+  let localGame: GameState | null = null; // partida contra la CPU guardada mientras se juega online
   const net = {
     phase: 'menu',
     code: '',
@@ -135,6 +138,7 @@ export function startUI() {
 
   function peerError(err: any) {
     const t = err && err.type;
+    // Si ya están conectados, una caída del servidor de presentación no corta el juego.
     if (net.phase === 'playing' && ['network', 'server-error', 'socket-error', 'disconnected'].includes(t)) return;
     if (t === 'unavailable-id' && net.phase === 'hosting') {
       startHost();
@@ -175,8 +179,9 @@ export function startUI() {
     net.phase = 'hosting';
     net.error = '';
     net.code = genCode();
-    const peer = new Peer(PEER_PREFIX + net.code, { debug: 0 });
+    const peer = new Peer(PEER_PREFIX + net.code, Log.peerOptions());
     net.peer = peer;
+    Log.watchPeer(peer, 'anfitrión');
     peer.on('open', () => render());
     peer.on('error', peerError);
     peer.on('connection', (conn: any) => {
@@ -185,6 +190,7 @@ export function startUI() {
         return;
       }
       net.conn = conn;
+      Log.watchConn(conn, 'anfitrión');
       watchConn(conn, onHostData);
       conn.on('open', () => {
         enterOnline('host');
@@ -207,12 +213,14 @@ export function startUI() {
     net.phase = 'joining';
     net.error = '';
     net.code = code;
-    const peer = new Peer({ debug: 0 });
+    const peer = new Peer(Log.peerOptions());
     net.peer = peer;
+    Log.watchPeer(peer, 'invitado');
     peer.on('error', peerError);
     peer.on('open', () => {
       const conn = peer.connect(PEER_PREFIX + code, { reliable: true });
       net.conn = conn;
+      Log.watchConn(conn, 'invitado');
       watchConn(conn, onGuestData);
       conn.on('open', () => {
         clearTimeout(net.joinTimer);
@@ -244,6 +252,7 @@ export function startUI() {
   }
 
   function onGuestData(msg: any) {
+    // Del otro lado hay una partida en equipo: la conexión pasa a team.ts.
     if (msg.type === 'lobby' || msg.type === 'full') {
       const { peer, conn, code } = net;
       clearTimeout(net.joinTimer);
@@ -291,6 +300,7 @@ export function startUI() {
     return P ? 'Esperando la respuesta de tu rival…' : 'Juega tu rival…';
   }
 
+  // Resumen al final de la mano: cuántos puntos se lleva cada uno y por qué.
   function summaryHtml(S: GameState): string {
     const items = S.handItems.map((it) => `<li><span>${cap(it.reason)}</span><b>+${it.pts} ${name(it.w)}</b></li>`).join('');
     return `<div class="summary">
@@ -435,6 +445,7 @@ export function startUI() {
       h += '<div class="online"><div class="hint">Conectado. Esperando que arranque la partida…</div></div>';
     else h += gameHtml();
 
+    // Si estabas escribiendo (por ejemplo tu nombre) y llega una actualización, no perdés el foco.
     const focused = document.activeElement as HTMLElement | null;
     const focusId = focused && focused.id;
     const caret = focused instanceof HTMLInputElement ? focused.selectionStart : null;

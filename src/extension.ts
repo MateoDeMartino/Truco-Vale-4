@@ -3,7 +3,10 @@ import * as vscode from 'vscode';
 export class TrucoViewProvider implements vscode.WebviewViewProvider {
   private view: vscode.WebviewView | null = null;
 
-  constructor(private readonly extensionUri: vscode.Uri) {}
+  constructor(
+    private readonly extensionUri: vscode.Uri,
+    private readonly log: vscode.LogOutputChannel
+  ) {}
 
   resolveWebviewView(view: vscode.WebviewView) {
     this.view = view;
@@ -19,6 +22,11 @@ export class TrucoViewProvider implements vscode.WebviewViewProvider {
       if (msg && msg.type === 'copy' && typeof msg.text === 'string') {
         vscode.env.clipboard.writeText(msg.text);
         vscode.window.showInformationMessage(`Código ${msg.text} copiado. Pasáselo a tu rival.`);
+      } else if (msg && msg.type === 'log' && typeof msg.text === 'string') {
+        // Líneas del log de conexión del webview (ver src/webview/log.ts).
+        if (msg.level === 'error') this.log.error(msg.text);
+        else if (msg.level === 'warn') this.log.warn(msg.text);
+        else this.log.info(msg.text);
       }
     });
   }
@@ -52,8 +60,10 @@ export class TrucoViewProvider implements vscode.WebviewViewProvider {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  const provider = new TrucoViewProvider(context.extensionUri);
+  const log = vscode.window.createOutputChannel('Truco Vale 4', { log: true });
+  const provider = new TrucoViewProvider(context.extensionUri, log);
   context.subscriptions.push(
+    log,
     vscode.window.registerWebviewViewProvider('trucovale4.view', provider, {
       webviewOptions: { retainContextWhenHidden: true },
     }),
