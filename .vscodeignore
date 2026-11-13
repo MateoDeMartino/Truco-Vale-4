@@ -1,5 +1,9 @@
 .git/**
 .gitignore
+src/**
 test/**
+dist/test/**
+tsconfig.json
+esbuild.js
 images/icon.jpg
 *.vsix
