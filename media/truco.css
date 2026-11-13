@@ -167,10 +167,6 @@ button.kick { background: transparent; color: inherit; opacity: .6; padding: 0 4
 button.kick:hover { background: #c62828; color: #fff; opacity: 1; }
 button.call:hover, button.env:hover, button.yes:hover, button.no:hover { filter: brightness(1.15); }
 
-.log summary { cursor: pointer; font-size: 11px; opacity: .75; }
-.log ul { margin: 4px 0 0; padding-left: 16px; max-height: 140px; overflow-y: auto; font-size: 11px; opacity: .85; }
-.log li { margin: 1px 0; }
-
 .tabs { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, .35)); }
 .tabs-group { display: flex; flex: 1; gap: 2px; }
 .tabs .tab {
