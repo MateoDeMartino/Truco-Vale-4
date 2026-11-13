@@ -4,6 +4,7 @@ import { TrucoTeam as T } from '../engine/engine-team';
 import * as Log from './log';
 import { esc } from './esc';
 import { Sound } from './sound';
+import { tanteadorHtml } from './tanteador';
 import { Card, EnvidoValue } from '../types/truco';
 import {
   LobbyPlayer,
@@ -417,11 +418,13 @@ function gameHtml(): string {
 
   h += `<div class="netbar"><span>👥 ${esc(n)} jugadores · ${esc(tm.code)}</span>${o.btn('Salir', 't-leave', '', 'secondary')}</div>`;
 
-  h += `<div class="score team-score">
-    <div class="side us"><span>Nosotros</span><b>${esc(V.score[myTeam])}</b></div>
-    <div class="mid">a ${esc(V.target)}<br><small>vale ${T.TRUCO_PTS[V.truco.level]}</small></div>
-    <div class="side them"><span>Ellos</span><b>${esc(V.score[1 - myTeam])}</b></div>
-  </div>`;
+  h += tanteadorHtml({
+    scoreUs: V.score[myTeam],
+    scoreThem: V.score[1 - myTeam],
+    target: V.target,
+    nameUs: 'Nosotros',
+    nameThem: 'Ellos',
+  });
 
   const sayCls = V.say ? `from-${V.say.seat === me ? 'p' : 'c'}${V.say.tone ? ' tone-' + esc(V.say.tone) : ''}` : 'empty';
   h += `<div class="bubble ${sayCls}">${V.say ? seatName(V.say.seat) + ': ' + esc(V.say.msg) : '&nbsp;'}</div>`;

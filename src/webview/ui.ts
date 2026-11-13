@@ -4,6 +4,7 @@ import { TrucoTeamUI as Team } from './team';
 import * as Log from './log';
 import { esc } from './esc';
 import { Sound } from './sound';
+import { tanteadorHtml } from './tanteador';
 import { Action, Card, EnvidoValue, GameState } from '../types/truco';
 
 declare function acquireVsCodeApi(): {
@@ -402,11 +403,13 @@ export function startUI() {
       h += `<div class="netbar"><span>🌐 Online · ${mode === 'host' ? 'creaste la partida' : 'partida ' + esc(net.code)}</span>${btn('Salir', 'leave', '', 'secondary')}</div>`;
     }
 
-    h += `<div class="score">
-      <div class="side ${S.mano === 'p' ? 'is-mano' : ''}"><span>${name('p')}</span><b>${esc(S.score.p)}</b></div>
-      <div class="mid">a ${esc(S.target)}<br><small>vale ${E.TRUCO_PTS[S.truco.level]}</small></div>
-      <div class="side ${S.mano === 'c' ? 'is-mano' : ''}"><span>${name('c')}</span><b>${esc(S.score.c)}</b></div>
-    </div>`;
+    h += tanteadorHtml({
+      scoreUs: S.score.p,
+      scoreThem: S.score.c,
+      target: S.target,
+      nameUs: name('p'),
+      nameThem: name('c'),
+    });
 
     h += '<div class="cpu-row"><div class="hand cpu">';
     if (S.handOver) S.hand.c.forEach((c) => { h += cardHtml(c, 'small'); });

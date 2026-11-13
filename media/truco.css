@@ -317,3 +317,270 @@ button.seg.on { background: var(--vscode-button-background); color: var(--vscode
 .baza.them { background: var(--them); }
 .baza.tie { background: #777; }
 .env-line { font-size: 10px; text-align: center; opacity: .95; }
+
+/* ==========================================================================
+   Tanteador Criollo (Estilo Madera, Fósforos y Cinta Argentina)
+   ========================================================================== */
+
+.criollo-tanteador-details {
+  background: #1e140d;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.criollo-tanteador-details summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+.criollo-tanteador-details summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Barra resumen colapsada */
+.criollo-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: linear-gradient(180deg, #2c1d13 0%, #1c120b 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.criollo-summary-bar:hover {
+  background: linear-gradient(180deg, #352317 0%, #22160d 100%);
+}
+
+.criollo-sum-team {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.criollo-sum-team.us { align-items: flex-start; }
+.criollo-sum-team.them { align-items: flex-end; }
+
+.criollo-sum-team .team-lbl {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #e0c18d;
+}
+
+.criollo-sum-team .badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.criollo-sum-team .badge.malas {
+  background: linear-gradient(180deg, #5c6269 0%, #373b40 100%);
+  color: #f0f0f0;
+  border: 1px solid #717882;
+}
+.criollo-sum-team .badge.buenas {
+  background: linear-gradient(180deg, #389ad6 0%, #1f6492 100%);
+  color: #ffffff;
+  border: 1px solid #5ab0e6;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.criollo-target-gem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, #3b2010 0%, #180c05 100%);
+  border: 2px solid #caa66a;
+  box-shadow: 0 0 6px rgba(202, 166, 106, 0.4);
+  border-radius: 6px;
+  padding: 2px 8px;
+  min-width: 38px;
+}
+.criollo-target-gem b {
+  font-size: 15px;
+  color: #f7a224;
+  font-family: var(--vscode-editor-font-family, monospace);
+  line-height: 1.1;
+}
+.criollo-target-gem .tanteador-icon {
+  font-size: 9px;
+  line-height: 1;
+  opacity: 0.8;
+}
+
+/* Tablero de Madera desplegado */
+.criollo-board-wood {
+  position: relative;
+  background-color: #4a2810;
+  background-image: 
+    repeating-linear-gradient(90deg, 
+      transparent 0px, 
+      transparent 28px, 
+      rgba(0, 0, 0, 0.4) 28px, 
+      rgba(0, 0, 0, 0.4) 30px
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.3) 100%);
+  border-top: 2px solid #231206;
+  padding: 10px 8px 12px;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+
+/* Cabecera del tablero */
+.wood-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.wood-team {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.wood-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #ff9800;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  margin-bottom: 2px;
+}
+.wood-team .ribbon {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  width: 75%;
+  text-align: center;
+}
+.wood-team .ribbon.malas {
+  background: linear-gradient(180deg, #4f5358 0%, #2f3237 100%);
+  color: #fff;
+}
+.wood-team .ribbon.buenas {
+  background: linear-gradient(180deg, #29b6f6 0%, #0288d1 100%);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+}
+
+.wood-target-plaque {
+  background: radial-gradient(circle, #2a1506 0%, #110802 100%);
+  border: 2px solid #f7a224;
+  border-radius: 6px;
+  padding: 4px 10px;
+  margin: 0 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+.wood-target-plaque span {
+  font-size: 18px;
+  font-weight: 900;
+  color: #f7a224;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+/* Área de juego de madera con cinta patria */
+.wood-playfield {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  min-height: 170px;
+  position: relative;
+  margin: 0 4px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.4);
+  padding: 6px 0;
+}
+
+.wood-side {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 4px;
+}
+
+.matches-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.match-group {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.match-group.empty-placeholder {
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+
+/* Divisor central con cinta patria argentina */
+.wood-divider {
+  width: 22px;
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+.argentina-ribbon {
+  width: 14px;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    #75aadb 0%, #75aadb 32%, 
+    #ffffff 33%, #ffffff 66%, 
+    #75aadb 67%, #75aadb 100%
+  );
+  border-radius: 7px;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.5), inset 0 0 2px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.argentina-ribbon::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(0, 0, 0, 0.2) 0px,
+    rgba(0, 0, 0, 0.2) 8px,
+    transparent 8px,
+    transparent 16px
+  );
+}
+
+/* Fósforos sueltos decorativos abajo */
+.wood-footer-matches {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-top: 10px;
+}
+.match-bundle {
+  display: flex;
+  align-items: flex-end;
+  height: 24px;
+  gap: 2px;
+}
+.loose-match {
+  width: 3.5px;
+  height: 22px;
+  background: linear-gradient(180deg, #c62828 0%, #c62828 5px, #e0c18d 6px, #caa66a 100%);
+  border-radius: 2px 2px 1px 1px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  transform-origin: bottom center;
+}
+
