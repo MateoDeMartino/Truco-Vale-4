@@ -24,6 +24,8 @@ Los botones de arriba a la derecha cambian cómo se ve la partida (la elección 
 1. En la pestaña **Online**, tocá **Crear partida** y pasale el código a tu rival.
 2. Tu rival, desde su VS Code (con la misma versión de la extensión), escribe el código y toca **Unirse**.
 
+Durante la partida online hay un **💬 Chat** de texto abajo de la mesa (Enter manda el mensaje). Si lo cerrás, muestra cuántos mensajes nuevos llegaron.
+
 ### En equipo (4 o 6 jugadores)
 
 1. En **Online**, tocá **En equipo (4 o 6)**. Elegí cuántos jugadores y a cuántos puntos.
@@ -32,7 +34,7 @@ Los botones de arriba a la derecha cambian cómo se ve la partida (la elección 
 
 Los equipos se sientan intercalados en la mesa y cada uno ve el suyo como **Nosotros** y al otro como **Ellos**. El envido cuenta el mejor de cada equipo, y a un canto puede responder cualquiera del equipo rival.
 
-La conexión es directa entre las PCs (WebRTC con [PeerJS](https://peerjs.com), licencia MIT). El servidor público de PeerJS solo se usa para que se encuentren: ahí la sala se registra con un hash del código, y el anfitrión solo deja entrar a quien le manda el código correcto. En las partidas en equipo, el anfitrión puede sacar a alguien de la sala con ✕.
+La conexión es directa entre las PCs (WebRTC con [PeerJS](https://peerjs.com), licencia MIT). El servidor público de PeerJS solo se usa para que se encuentren: ahí la sala se registra con un hash del código, y el anfitrión solo deja entrar a quien le manda el código correcto. En las partidas en equipo, el anfitrión puede sacar a alguien de la sala con ✕. En el chat en equipo, el nombre de cada mensaje lo pone el anfitrión, así nadie puede escribir haciéndose pasar por otro.
 
 ### Si no conecta
 
@@ -46,7 +48,7 @@ La conexión es directa entre las PCs (WebRTC con [PeerJS](https://peerjs.com), 
 pnpm install
 pnpm run build        # compila el código TypeScript con esbuild hacia dist/
 pnpm run check-types  # valida tipos con tsc
-pnpm test             # reglas (partidos simulados), códigos de sala y sonidos
+pnpm test             # reglas (partidos simulados), códigos de sala, sonidos y chat
 pnpm run package      # genera trucovale4-<versión>.vsix
 ```
 
@@ -57,6 +59,7 @@ Para instalar el paquete local: `code --install-extension trucovale4-<versión>.
 - `src/engine/validate.ts`: revisa la forma de los datos que llegan del otro jugador antes de usarlos
 - `src/webview/ui.ts`, `src/webview/team.ts`, `media/truco.css`: interfaz y modo online
 - `src/webview/room.ts`: códigos de sala y handshake de entrada
+- `src/webview/chat.ts`: chat de texto de las partidas online
 - `src/webview/sound.ts`, `src/webview/sound-events.ts`: efectos de sonido y cuándo suena cada uno
 - `src/webview/tanteador.ts`: tanteador criollo
 - `src/webview/prefs.ts`: opciones de la interfaz (minimalista, tanteador)

@@ -33,7 +33,7 @@
     "build": "node esbuild.js",
     "watch": "node esbuild.js --watch",
     "check-types": "tsc --noEmit",
-    "test": "node esbuild.js && node dist/test/engine.test.js && node dist/test/team.test.js && node dist/test/room.test.js && node dist/test/sound.test.js",
+    "test": "node esbuild.js && node dist/test/engine.test.js && node dist/test/team.test.js && node dist/test/room.test.js && node dist/test/sound.test.js && node dist/test/chat.test.js",
     "package": "pnpm run build && vsce package -o trucovale4-$npm_package_version.vsix"
   },
   "pnpm": {

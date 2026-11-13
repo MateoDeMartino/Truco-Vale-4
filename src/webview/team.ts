@@ -3,6 +3,7 @@
 import { TrucoTeam as T } from '../engine/engine-team';
 import * as Log from './log';
 import * as Room from './room';
+import * as Chat from './chat';
 import { esc } from './esc';
 import { isLobby, isTeamView } from '../engine/validate';
 import { SoundSnap, snapTeam } from './sound-events';
@@ -132,7 +133,8 @@ function newMatch(): void {
 }
 
 function hostData(id: string, msg: any): void {
-  if (!tm || !tm.seats) return;
+  // Ojo: en la sala de espera todavía no hay asientos (tm.seats); solo 'act' los necesita.
+  if (!tm) return;
   const p = player(id);
   if (msg.type === 'hello' || msg.type === 'name') {
     const nm = cleanName(msg.name);
@@ -140,7 +142,7 @@ function hostData(id: string, msg: any): void {
     broadcastLobby();
   } else if (msg.type === 'team') {
     setTeam(id, msg.team);
-  } else if (msg.type === 'act' && tm.phase === 'game' && msg.a && typeof msg.a.t === 'string') {
+  } else if (msg.type === 'act' && tm.phase === 'game' && tm.seats && msg.a && typeof msg.a.t === 'string') {
     const a: any = { t: msg.a.t };
     if (typeof msg.a.i === 'number') a.i = msg.a.i;
     if (typeof msg.a.v === 'string') a.v = msg.a.v as EnvidoValue;
@@ -149,13 +151,38 @@ function hostData(id: string, msg: any): void {
     nextHand();
   } else if (msg.type === 'new') {
     newMatch();
+  } else if (msg.type === 'chat') {
+    // El nombre lo pone el anfitrión con el de la sala: el invitado no puede elegir otro.
+    const text = Chat.cleanText(msg.text);
+    if (!p || !text || !Chat.allow(id)) return;
+    Chat.add(p.name, text, false);
+    relayChat(p.name, text, id);
+    o.render();
   }
+}
+
+// Reenvía un mensaje de chat a todos los invitados menos a quien lo escribió.
+function relayChat(from: string, text: string, exceptId: string | null): void {
+  if (!tm || !tm.conns) return;
+  tm.conns.forEach((conn, id) => {
+    if (id !== exceptId && conn.open) conn.send({ type: 'chat', from, text });
+  });
+}
+
+// Manda lo que escribió este jugador.
+export function sendChat(text: string): void {
+  if (!tm) return;
+  Chat.add(myName, text, true);
+  if (tm.role === 'host') relayChat(myName, text, null);
+  else send({ type: 'chat', text });
+  o.render();
 }
 
 export function host(): void {
   if (typeof Peer === 'undefined' || !Peer) return o.onExit('Este VS Code no soporta conexiones WebRTC.');
   leave();
   const code = Room.genCode();
+  Chat.reset();
   const game: ActiveTeamGame = {
     role: 'host',
     phase: 'lobby',
@@ -247,6 +274,7 @@ function start(): void {
 // ui.ts abre la conexión con el código; si del otro lado hay una partida en equipo, nos la pasa.
 export function adoptGuest(peer: any, conn: any, code: string, firstMsg: any): void {
   leave();
+  Chat.reset();
   tm = { role: 'guest', phase: 'lobby', code, peer, conn, myId: null, lobby: null, view: null, notice: '' };
   peer.on('error', (err: any) => {
     if (['network', 'server-error', 'socket-error', 'disconnected'].includes(err && err.type)) return;
@@ -277,6 +305,11 @@ function guestData(msg: any): void {
     if (!isTeamView(msg.S)) return badData();
     tm.view = msg.S;
     tm.phase = 'game';
+    o.render();
+  } else if (msg.type === 'chat') {
+    const text = Chat.cleanText(msg.text);
+    if (!text) return;
+    Chat.add(Chat.cleanFrom(msg.from), text, false);
     o.render();
   } else if (msg.type === 'full') {
     exit('Esa partida ya está llena o ya empezó.');
@@ -389,6 +422,7 @@ function lobbyHtml(): string {
   }
   if (tm.notice) h += `<div class="error">${esc(tm.notice)}</div>`;
   h += '</div>';
+  h += Chat.html();
   return h;
 }
 
@@ -515,6 +549,7 @@ function gameHtml(): string {
   if (!minimal) {
     h += `<details class="log" open><summary>Historial</summary><ul>${V.log.map((l) => `<li>${names(l)}</li>`).join('')}</ul></details>`;
   }
+  h += Chat.html();
   return h;
 }
 
@@ -555,6 +590,8 @@ function myAction(a: any): void {
 }
 
 export function click(a: string, el: HTMLElement): void {
+  // Crear la sala es lo único que se puede hacer sin una partida en equipo activa.
+  if (a === 't-host') return host();
   if (!tm) return;
   switch (a) {
     case 't-host':
@@ -646,4 +683,5 @@ export const TrucoTeamUI = {
   commitName,
   active,
   soundSnap,
+  sendChat,
 };
