@@ -120,6 +120,7 @@
     }
     const msg = {
       'peer-unavailable': 'No hay ninguna partida con ese código.',
+      'connect-timeout': 'La partida existe pero no se pudo conectar con tu rival. Suele ser la red (firewall, VPN o wifi corporativo): probá desde otra red.',
       'browser-incompatible': 'Este VS Code no soporta conexiones WebRTC.',
       network: 'No se pudo conectar al servidor. Revisá tu conexión.',
       'server-error': 'El servidor de conexión no responde. Probá de nuevo en un rato.',
@@ -137,6 +138,7 @@
     });
     conn.on('close', () => {
       if (conn !== net.conn) return;
+      if (net.phase === 'joining') return peerError({ type: 'connect-timeout' });
       leaveOnline('Se cortó la conexión con tu rival.');
       screen = 'online';
       update();
@@ -195,7 +197,9 @@
       });
     });
     net.joinTimer = setTimeout(() => {
-      if (net.phase === 'joining') peerError({ type: 'peer-unavailable' });
+      // Si el código no existiera, el servidor avisa 'peer-unavailable' en menos de un segundo.
+      // Llegar acá significa que la partida existe pero WebRTC no pudo abrir el canal (NAT/firewall).
+      if (net.phase === 'joining') peerError({ type: 'connect-timeout' });
     }, JOIN_TIMEOUT);
     render();
   }
