@@ -372,8 +372,6 @@ function gameHtml(): string {
   const seatName = (s: number) => (s === me ? 'Vos' : esc(V.names[s]));
   const teamName = (t: number) => (t === myTeam ? 'Nosotros' : 'Ellos');
   const teamCls = (t: number) => (t === myTeam ? 'us' : 'them');
-  const names = (l: string) =>
-    esc(l).replace(/\{s(\d+)\}/g, (_, s) => seatName(+s)).replace(/\{t(\d)\}/g, (_, t) => teamName(+t));
   let h = '';
 
   h += `<div class="netbar"><span>👥 ${esc(n)} jugadores · ${esc(tm.code)}</span>${o.btn('Salir', 't-leave', '', 'secondary')}</div>`;
@@ -435,13 +433,14 @@ function gameHtml(): string {
   });
   h += '</div>';
 
-  h += `<div class="info"><span>Tu envido: <b>${T.envidoOf(V.orig[me])}</b>${V.mano === me ? ' · sos mano' : ''}</span>`;
+  const infoParts: string[] = [];
+  if (V.mano === me) infoParts.push('<span>Sos mano</span>');
   if (V.env.done) {
     const won = V.env.winner === myTeam;
     const detail = V.env.accepted ? `${won ? 'Nosotros' : 'Ellos'} +${esc(V.env.pts)}` : 'no querido';
-    h += `<span class="env-result ${won ? 'won' : 'lost'}">Envido <b>${won ? 'ganado' : 'perdido'}</b> · ${detail}</span>`;
+    infoParts.push(`<span class="env-result ${won ? 'won' : 'lost'}">Envido <b>${won ? 'ganado' : 'perdido'}</b> · ${detail}</span>`);
   }
-  h += '</div>';
+  if (infoParts.length) h += `<div class="info">${infoParts.join('')}</div>`;
 
   h += '<div class="actions">';
   const act = (label: string, t: string, extra?: string, cls?: string) =>
@@ -464,8 +463,6 @@ function gameHtml(): string {
     if (has('mazo')) h += act('Irse al mazo', 'mazo', '', 'secondary');
   }
   h += '</div>';
-
-  h += `<details class="log" open><summary>Historial</summary><ul>${V.log.map((l) => `<li>${names(l)}</li>`).join('')}</ul></details>`;
   return h;
 }
 

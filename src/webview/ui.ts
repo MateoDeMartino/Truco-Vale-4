@@ -67,7 +67,6 @@ export function startUI() {
   const name = (w: string) => (w === 'p' ? 'Vos' : mode === 'local' ? 'CPU' : 'Rival');
   const oppLabel = () => (mode === 'local' ? 'la CPU' : 'tu rival');
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-  const names = (s: string) => esc(s).replace(/\{(p|c)\}/g, (_, x) => name(x));
 
   function save() {
     vscode.setState({ v: 1, S: mode === 'local' ? E.state() : localGame, name: playerName });
@@ -396,15 +395,16 @@ export function startUI() {
     });
     h += '</div>';
 
-    h += `<div class="info"><span>Tu envido: <b>${E.envidoOf(S.orig.p)}</b>${S.mano === 'p' ? ' · sos mano' : ''}</span>`;
+    const infoParts: string[] = [];
+    if (S.mano === 'p') infoParts.push('<span>Sos mano</span>');
     if (S.env.done && S.env.winner) {
       const won = S.env.winner === 'p';
       const detail = S.env.accepted
         ? won ? `+${esc(S.env.pts)}` : `${name('c')} +${esc(S.env.pts)}`
         : won ? `no quiso · +${esc(S.env.pts)}` : 'no quisiste';
-      h += `<span class="env-result ${won ? 'won' : 'lost'}">Envido <b>${won ? 'ganado' : 'perdido'}</b> · ${detail}</span>`;
+      infoParts.push(`<span class="env-result ${won ? 'won' : 'lost'}">Envido <b>${won ? 'ganado' : 'perdido'}</b> · ${detail}</span>`);
     }
-    h += '</div>';
+    if (infoParts.length) h += `<div class="info">${infoParts.join('')}</div>`;
 
     h += '<div class="actions">';
     if (S.over) {
@@ -424,8 +424,6 @@ export function startUI() {
       if (has('mazo')) h += btn('Irse al mazo', 'mazo', '', 'secondary');
     }
     h += '</div>';
-
-    h += `<details class="log" open><summary>Historial</summary><ul>${S.log.map((l) => `<li>${names(l)}</li>`).join('')}</ul></details>`;
 
     if (mode === 'local') {
       h += `<div class="footer">
