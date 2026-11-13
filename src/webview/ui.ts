@@ -6,6 +6,7 @@ import * as Room from './room';
 import { esc } from './esc';
 import { isGameState } from '../engine/validate';
 import { Sound } from './sound';
+import { SoundSnap, snapGame, soundsBetween } from './sound-events';
 import { Action, Card, EnvidoValue, GameState } from '../types/truco';
 
 declare function acquireVsCodeApi(): {
@@ -83,23 +84,7 @@ export function startUI() {
     clearTimeout(timer);
     if (mode === 'local' && !Team.active() && E.actor() === 'c') {
       timer = setTimeout(() => {
-        const prev = E.state();
         E.aiAct('c');
-        const current = E.state();
-        // Determinar qué hizo la CPU para reproducir el sonido adecuado
-        const prevCards = (prev.cur.p ? 1 : 0) + (prev.cur.c ? 1 : 0);
-        const curCards = (current.cur.p ? 1 : 0) + (current.cur.c ? 1 : 0);
-        if (curCards > prevCards || current.bazas.length > prev.bazas.length) {
-          Sound.playCard();
-        } else if (current.pending && current.pending.kind === 'truco') {
-          Sound.playTruco(current.pending.level);
-        } else if (current.pending && current.pending.kind === 'envido') {
-          Sound.playEnvido();
-        } else if (prev.pending && !current.pending) {
-          if (current.env.accepted || current.truco.level > prev.truco.level) Sound.playQuiero();
-          else Sound.playNoQuiero();
-        }
-        checkStateSounds(prev, current);
         update();
       }, CPU_DELAY);
     }
@@ -266,20 +251,17 @@ export function startUI() {
   }
 
   function onHostData(msg: any) {
-    const prev = E.state();
+    const S = E.state();
     if (msg.type === 'act' && msg.a && typeof msg.a.t === 'string') {
       const a: any = { t: msg.a.t };
       if (typeof msg.a.i === 'number') a.i = msg.a.i;
       if (typeof msg.a.v === 'string') a.v = msg.a.v;
-      triggerSoundForAction(a, prev);
       E.act('c', a);
-    } else if (msg.type === 'next' && prev.handOver && !prev.over) {
+    } else if (msg.type === 'next' && S.handOver && !S.over) {
       E.newHand();
-    } else if (msg.type === 'new' && prev.over) {
-      E.newGame(prev.target);
+    } else if (msg.type === 'new' && S.over) {
+      E.newGame(S.target);
     }
-    const current = E.state();
-    checkStateSounds(prev, current);
     update();
   }
 
@@ -306,24 +288,7 @@ export function startUI() {
         update();
         return;
       }
-      const prev = E.state();
       E.load(msg.S);
-      const current = E.state();
-      if (net.gotState) {
-        const prevCards = (prev.cur.p ? 1 : 0) + (prev.cur.c ? 1 : 0);
-        const curCards = (current.cur.p ? 1 : 0) + (current.cur.c ? 1 : 0);
-        if (curCards > prevCards || current.bazas.length > prev.bazas.length) {
-          Sound.playCard();
-        } else if (current.pending && current.pending.kind === 'truco' && (!prev.pending || prev.pending.kind !== 'truco' || prev.pending.level < current.pending.level)) {
-          Sound.playTruco(current.pending.level);
-        } else if (current.pending && current.pending.kind === 'envido' && (!prev.pending || prev.pending.kind !== 'envido')) {
-          Sound.playEnvido();
-        } else if (prev.pending && !current.pending) {
-          if (current.env.accepted || current.truco.level > prev.truco.level) Sound.playQuiero();
-          else Sound.playNoQuiero();
-        }
-        checkStateSounds(prev, current);
-      }
       net.gotState = true;
       render();
     }
@@ -511,6 +476,41 @@ export function startUI() {
     return h;
   }
 
+  // ---------- Sonidos ----------
+
+  // Última foto de la mesa que se mostró. Se compara con la actual en cada render: así suena lo
+  // que cambió, venga de un click, de la CPU o del rival, y una sola vez.
+  let lastSound: { key: string; snap: SoundSnap } | null = null;
+
+  function currentSoundSnap(): { key: string; snap: SoundSnap } | null {
+    if (Team.active()) return Team.soundSnap();
+    if (screen === 'online' && mode === 'local') return null; // menú online
+    if (mode === 'guest' && !net.gotState) return null;
+    return { key: mode === 'local' ? 'local' : `${mode}:${net.code}`, snap: snapGame(E.state()) };
+  }
+
+  function playSounds() {
+    let cur: { key: string; snap: SoundSnap } | null = null;
+    try {
+      cur = currentSoundSnap();
+    } catch (e) {
+      cur = null;
+    }
+    // Al cambiar de partida (otra sala, volver a la CPU) no se compara con la anterior.
+    const prev = cur && lastSound && lastSound.key === cur.key ? lastSound.snap : null;
+    lastSound = cur;
+    if (!cur) return;
+    for (const ev of soundsBetween(prev, cur.snap)) {
+      if (ev === 'card') Sound.playCard();
+      else if (ev === 'truco') Sound.playTruco(cur.snap.trucoLevel + 1);
+      else if (ev === 'envido') Sound.playEnvido();
+      else if (ev === 'quiero') Sound.playQuiero();
+      else if (ev === 'noquiero' || ev === 'loseMatch') Sound.playNoQuiero();
+      else if (ev === 'winHand') Sound.playWinHand();
+      else if (ev === 'winMatch') Sound.playWinMatch();
+    }
+  }
+
   function render() {
     let h: string;
     try {
@@ -525,6 +525,7 @@ export function startUI() {
       else E.newGame(15);
       h = buildHtml();
     }
+    playSounds();
 
     // Si estabas escribiendo (por ejemplo tu nombre) y llega una actualización, no perdés el foco.
     const focused = document.activeElement as HTMLElement | null;
@@ -552,42 +553,13 @@ export function startUI() {
     chosenTarget = null;
   }
 
-  function triggerSoundForAction(a: Action, stateBefore: GameState) {
-    if (a.t === 'play') {
-      Sound.playCard();
-    } else if (a.t === 'truco' || a.t === 'raise') {
-      const level = a.t === 'truco' ? stateBefore.truco.level + 1 : (stateBefore.pending && stateBefore.pending.kind === 'truco' ? stateBefore.pending.level + 1 : 1);
-      Sound.playTruco(level);
-    } else if (a.t === 'env') {
-      Sound.playEnvido();
-    } else if (a.t === 'quiero') {
-      Sound.playQuiero();
-    } else if (a.t === 'noquiero' || a.t === 'mazo') {
-      Sound.playNoQuiero();
-    }
-  }
-
-  function checkStateSounds(prev: GameState, current: GameState) {
-    if (current.over && !prev.over) {
-      if (current.over === 'p') Sound.playWinMatch();
-      else Sound.playNoQuiero();
-    } else if (current.handOver && !prev.handOver) {
-      // Fin de mano
-      const won = current.score.p - prev.score.p > current.score.c - prev.score.c;
-      if (won) Sound.playWinHand();
-      else Sound.playCard();
-    }
-  }
-
   function gameAction(a: string, el: HTMLElement) {
-    const prev = E.state();
     if (mode === 'guest') {
       if (a === 'next' || a === 'new') send({ type: a });
       else {
         const o: any = { t: a };
         if (el.dataset.i !== undefined) o.i = Number(el.dataset.i);
         if (el.dataset.v) o.v = el.dataset.v;
-        triggerSoundForAction(o, prev);
         send({ type: 'act', a: o });
       }
       return;
@@ -598,11 +570,8 @@ export function startUI() {
       const o: any = { t: a };
       if (el.dataset.i !== undefined) o.i = Number(el.dataset.i);
       if (el.dataset.v) o.v = el.dataset.v;
-      triggerSoundForAction(o, prev);
       E.act('p', o as Action);
     }
-    const current = E.state();
-    checkStateSounds(prev, current);
     update();
   }
 

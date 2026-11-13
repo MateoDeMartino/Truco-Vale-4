@@ -5,7 +5,7 @@ import * as Log from './log';
 import * as Room from './room';
 import { esc } from './esc';
 import { isLobby, isTeamView } from '../engine/validate';
-import { Sound } from './sound';
+import { SoundSnap, snapTeam } from './sound-events';
 import { Card, EnvidoValue } from '../types/truco';
 import {
   LobbyPlayer,
@@ -142,22 +142,7 @@ function hostData(id: string, msg: any): void {
     const a: any = { t: msg.a.t };
     if (typeof msg.a.i === 'number') a.i = msg.a.i;
     if (typeof msg.a.v === 'string') a.v = msg.a.v as EnvidoValue;
-    const currentView = view();
-    triggerSoundForTeamAction(a, currentView);
-    if (T.act(tm.seats.indexOf(id), a)) {
-      const prevHandOver = currentView.handOver;
-      const prevOver = currentView.over;
-      broadcastState();
-      const updatedView = view();
-      if (updatedView.over !== null && prevOver === null) {
-        const me = updatedView.me;
-        const myTeam = me !== undefined && me !== null ? (me % 2 as TeamId) : null;
-        if (myTeam !== null && updatedView.over === myTeam) Sound.playWinMatch();
-        else Sound.playNoQuiero();
-      } else if (updatedView.handOver && !prevHandOver) {
-        Sound.playWinHand();
-      }
-    }
+    if (T.act(tm.seats.indexOf(id), a)) broadcastState();
   } else if (msg.type === 'next') {
     nextHand();
   } else if (msg.type === 'new') {
@@ -288,31 +273,8 @@ function guestData(msg: any): void {
     o.render();
   } else if (msg.type === 'state' && msg.S) {
     if (!isTeamView(msg.S)) return badData();
-    const prev = tm.view;
     tm.view = msg.S;
     tm.phase = 'game';
-    if (prev) {
-      const prevCards = prev.cur.cards.filter((c) => c !== null).length;
-      const curCards = msg.S.cur.cards.filter((c: any) => c !== null).length;
-      if (curCards > prevCards || msg.S.bazas.length > prev.bazas.length) {
-        Sound.playCard();
-      } else if (msg.S.pending && msg.S.pending.kind === 'truco' && (!prev.pending || prev.pending.kind !== 'truco' || prev.pending.level < msg.S.pending.level)) {
-        Sound.playTruco(msg.S.pending.level);
-      } else if (msg.S.pending && msg.S.pending.kind === 'envido' && (!prev.pending || prev.pending.kind !== 'envido')) {
-        Sound.playEnvido();
-      } else if (prev.pending && !msg.S.pending) {
-        if (msg.S.env.accepted || msg.S.truco.level > prev.truco.level) Sound.playQuiero();
-        else Sound.playNoQuiero();
-      }
-      if (msg.S.over !== null && prev.over === null) {
-        const me = msg.S.me;
-        const myTeam = me !== undefined && me !== null ? (me % 2 as TeamId) : null;
-        if (myTeam !== null && msg.S.over === myTeam) Sound.playWinMatch();
-        else Sound.playNoQuiero();
-      } else if (msg.S.handOver && !prev.handOver) {
-        Sound.playWinHand();
-      }
-    }
     o.render();
   } else if (msg.type === 'full') {
     exit('Esa partida ya está llena o ya empezó.');
@@ -554,27 +516,18 @@ export function html(): string {
   return tm.phase === 'lobby' ? lobbyHtml() : gameHtml();
 }
 
-// ---------- Eventos ----------
-
-function triggerSoundForTeamAction(a: TeamAction, stateBefore: TeamGameState) {
-  if (a.t === 'play') {
-    Sound.playCard();
-  } else if (a.t === 'truco' || a.t === 'raise') {
-    const level = a.t === 'truco' ? stateBefore.truco.level + 1 : (stateBefore.pending && stateBefore.pending.kind === 'truco' ? stateBefore.pending.level + 1 : 1);
-    Sound.playTruco(level);
-  } else if (a.t === 'env') {
-    Sound.playEnvido();
-  } else if (a.t === 'quiero') {
-    Sound.playQuiero();
-  } else if (a.t === 'noquiero' || a.t === 'mazo') {
-    Sound.playNoQuiero();
-  }
+// Foto de la mesa para decidir los sonidos (ver sound-events.ts). `key` cambia con cada sala.
+export function soundSnap(): { key: string; snap: SoundSnap } | null {
+  if (!tm || tm.phase !== 'game') return null;
+  const V = view();
+  if (typeof V.me !== 'number') return null;
+  return { key: `team:${tm.role}:${tm.code}`, snap: snapTeam(V, V.me) };
 }
+
+// ---------- Eventos ----------
 
 function myAction(a: any): void {
   if (!tm) return;
-  const currentView = view();
-  triggerSoundForTeamAction(a, currentView);
   if (tm.role === 'host') {
     if (T.act(tm.seats!.indexOf('h'), a)) broadcastState();
   } else {
@@ -673,4 +626,5 @@ export const TrucoTeamUI = {
   click,
   commitName,
   active,
+  soundSnap,
 };
